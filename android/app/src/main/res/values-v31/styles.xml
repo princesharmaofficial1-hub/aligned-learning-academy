@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 (API 31+) splash screen: only the brand background is drawn.
+         The system icon is transparent so no launcher-icon circle appears, and
+         the window background is the flat brand colour, which hands over
+         directly to the in-app splash animation on Flutter's first frame. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_background</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+</resources>
