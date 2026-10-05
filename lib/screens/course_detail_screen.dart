@@ -38,10 +38,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   Future<void> _loadCurriculum() async {
     final provider = Provider.of<CourseProvider>(context, listen: false);
     final targetId = widget.course?.id ?? widget.courseId!;
-    final course = provider.allCourses.firstWhere(
-      (c) => c.id == targetId,
-      orElse: () => widget.course ?? provider.allCourses.first,
-    );
+    final course = provider.getCourseById(targetId) ?? widget.course;
+    if (course == null) return;
 
     if (course.isCurriculumLoaded) return;
 
@@ -74,10 +72,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     return Consumer<CourseProvider>(
       builder: (context, provider, _) {
         final targetId = widget.course?.id ?? widget.courseId!;
-        final resolvedCourse = provider.allCourses.firstWhere(
-          (c) => c.id == targetId,
-          orElse: () => widget.course ?? provider.allCourses.first,
-        );
+        final resolvedCourse = provider.getCourseById(targetId) ?? widget.course;
+        if (resolvedCourse == null) {
+          return const Scaffold(
+            backgroundColor: AppTheme.background,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryGlow),
+            ),
+          );
+        }
 
         final firstUnfinishedLecture = resolvedCourse.lectures.isEmpty
             ? null

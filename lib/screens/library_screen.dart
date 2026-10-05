@@ -196,6 +196,30 @@ class LibraryScreen extends StatelessWidget {
   }
 
   Widget _buildInProgressCard(BuildContext context, Course course) {
+    if (course.lectures.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.cardBorder),
+        ),
+        child: ListTile(
+          title: Text(course.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+          subtitle: Text(course.university, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+          trailing: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CourseDetailScreen(course: course)),
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      );
+    }
+
     final activeLecture = course.lectures.firstWhere(
       (l) => l.watchProgress > 0 && l.watchProgress < 0.99,
       orElse: () => course.lectures.first,

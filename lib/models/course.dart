@@ -142,6 +142,7 @@ class Course {
     'infoHash': infoHash,
     'sizeFormatted': sizeFormatted,
     'webSeedUrl': webSeedUrl,
+    'archiveIdentifier': archiveIdentifier,
     'seeders': seeders,
     'lectures': lectures.map((l) => l.toJson()).toList(),
     'documents': documents.map((d) => d.toJson()).toList(),
@@ -155,6 +156,7 @@ class Course {
     'estimatedHours': estimatedHours,
     'author': author,
     'badge': badge,
+    'isCurriculumLoaded': isCurriculumLoaded,
   };
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -167,6 +169,7 @@ class Course {
     infoHash: json['infoHash'] as String,
     sizeFormatted: json['sizeFormatted'] as String? ?? 'Unknown',
     webSeedUrl: json['webSeedUrl'] as String? ?? '',
+    archiveIdentifier: json['archiveIdentifier'] as String?,
     seeders: json['seeders'] as int? ?? 12,
     lectures: (json['lectures'] as List<dynamic>?)
             ?.map((e) => Lecture.fromJson(e as Map<String, dynamic>))
@@ -187,5 +190,6 @@ class Course {
     estimatedHours: json['estimatedHours'] as String? ?? '10 hrs',
     author: json['author'] as String? ?? 'Academic Faculty',
     badge: json['badge'] as String? ?? 'Trending',
+    isCurriculumLoaded: json['isCurriculumLoaded'] as bool? ?? false,
   );
 }

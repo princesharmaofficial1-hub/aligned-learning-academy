@@ -27,8 +27,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300) {
       final provider = context.read<CourseProvider>();
       if (!provider.isLoadingMore && provider.hasMoreCourses) {
         provider.loadMoreCourses();
@@ -144,6 +145,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 if (provider.searchQuery.isEmpty &&
                     provider.selectedTechStack == null &&
                     lastCourse != null &&
+                    lastCourse.lectures.isNotEmpty &&
                     lastCourse.overallProgress > 0)
                   SliverToBoxAdapter(
                     child: _buildQuickResumeCard(context, lastCourse),
@@ -416,6 +418,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildQuickResumeCard(BuildContext context, Course course) {
+    if (course.lectures.isEmpty) return const SizedBox.shrink();
     final activeLecture = course.lectures.firstWhere(
       (l) => l.watchProgress > 0 && l.watchProgress < 0.99,
       orElse: () => course.lectures.first,
