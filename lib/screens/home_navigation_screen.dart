@@ -71,52 +71,57 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
 
   Widget _buildNavItem(int index, IconData inactiveIcon, IconData activeIcon, String label) {
     final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(horizontal: isSelected ? 16 : 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary.withAlpha(45) : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          border: isSelected
-              ? Border.all(color: AppTheme.primaryGlow.withAlpha(90), width: 1.2)
-              : null,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primary.withAlpha(35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : inactiveIcon,
-              color: isSelected ? AppTheme.primaryGlow : AppTheme.textMuted,
-              size: 22,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentIndex = index),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(horizontal: isSelected ? 12 : 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? AppTheme.primary.withAlpha(45) : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+              border: isSelected
+                  ? Border.all(color: AppTheme.primaryGlow.withAlpha(90), width: 1.2)
+                  : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: AppTheme.primary.withAlpha(35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.2,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? activeIcon : inactiveIcon,
+                  color: isSelected ? AppTheme.primaryGlow : AppTheme.textMuted,
+                  size: 22,
                 ),
-              ),
-            ],
-          ],
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
+
