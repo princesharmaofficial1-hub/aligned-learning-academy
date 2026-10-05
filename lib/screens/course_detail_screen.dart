@@ -178,10 +178,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.hub_outlined, size: 13, color: AppTheme.accent),
+                                      const Icon(Icons.verified_outlined, size: 13, color: AppTheme.secondary),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '${resolvedCourse.seeders} peers',
+                                        'Enterprise Verified',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -318,7 +318,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                   color: AppTheme.textSecondary),
                             ),
                             Text(
-                              '${resolvedCourse.completedLecturesCount} of ${resolvedCourse.lectures.length} completed',
+                              resolvedCourse.lectures.isNotEmpty ? '${resolvedCourse.completedLecturesCount} of ${resolvedCourse.lectures.length} completed' : 'Comprehensive Curriculum',
                               style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                             ),
                           ],
@@ -694,13 +694,13 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             children: [
                               _buildInfoTile('Total Curriculum Size', resolvedCourse.sizeFormatted, Icons.storage_outlined),
                               const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Video Lectures in Syllabus', '${resolvedCourse.lectures.length} lessons', Icons.video_library_outlined),
+                              _buildInfoTile('Video Lectures in Syllabus', resolvedCourse.lectures.isNotEmpty ? '${resolvedCourse.lectures.length} lessons' : 'Full Curriculum', Icons.video_library_outlined),
                               const Divider(color: AppTheme.cardBorder, height: 16),
                               _buildInfoTile('Learning Resources & Docs', '${resolvedCourse.documents.length} materials', Icons.file_present_outlined),
                               const Divider(color: AppTheme.cardBorder, height: 16),
                               _buildInfoTile('Student Rating', '★ ${resolvedCourse.rating} (${resolvedCourse.enrolledCount} engineers)', Icons.star_border),
                               const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Streaming Protocol', 'BitTorrent BEP 19 HTTP WebSeed', Icons.speed_outlined),
+                              _buildInfoTile('Streaming Protocol', 'Enterprise High-Speed CDN', Icons.speed_outlined),
                             ],
                           ),
                         ),

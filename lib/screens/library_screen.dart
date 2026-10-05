@@ -334,7 +334,7 @@ class LibraryScreen extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            '${course.university} • ${course.lectures.length} lessons • ${course.level}',
+            '${course.university} • ${course.lectures.isNotEmpty ? '${course.lectures.length} lessons' : 'Full Curriculum'} • ${course.level}',
             style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
         ),

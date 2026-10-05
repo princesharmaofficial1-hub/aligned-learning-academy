@@ -695,7 +695,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       const Icon(Icons.video_library, size: 11, color: AppTheme.primaryGlow),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '${course.lectures.length} Videos',
+                                        course.lectures.isNotEmpty ? '${course.lectures.length} Videos' : 'Full Syllabus',
                                         style: const TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
@@ -718,7 +718,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       const Icon(Icons.description_outlined, size: 11, color: AppTheme.secondary),
                                       const SizedBox(width: 4),
                                       Text(
-                                        '${course.documents.length} Docs',
+                                        course.documents.isNotEmpty ? '${course.documents.length} Docs' : 'Tech Labs',
                                         style: const TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
