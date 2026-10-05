@@ -36,6 +36,82 @@ class AppTheme {
   static const Color techKafka = Color(0xFFE879F9);
   static const Color techSecurity = Color(0xFFA78BFA);
 
+  static Color getTechColor(String tech) {
+    switch (tech.toLowerCase()) {
+      case 'python':
+        return techPython;
+      case 'react':
+      case 'next.js':
+        return techReact;
+      case 'node.js':
+      case 'express':
+        return techNode;
+      case 'angular':
+        return techAngular;
+      case 'fastapi':
+        return techFastApi;
+      case 'docker':
+      case 'kubernetes':
+        return techDocker;
+      case 'go':
+      case 'golang':
+        return techGo;
+      case 'rust':
+        return techRust;
+      case 'kafka':
+        return techKafka;
+      case 'cybersecurity':
+      case 'security':
+        return techSecurity;
+      case 'flutter':
+        return const Color(0xFF54C5F8);
+      case 'aws':
+        return const Color(0xFFFF9900);
+      default:
+        return primaryGlow;
+    }
+  }
+
+  static String getTechEmoji(String tech) {
+    switch (tech.toLowerCase()) {
+      case 'fastapi':
+        return '⚡';
+      case 'react':
+      case 'next.js':
+        return '⚛️';
+      case 'docker':
+        return '🐳';
+      case 'node.js':
+        return '🟢';
+      case 'kubernetes':
+        return '☸️';
+      case 'go':
+      case 'golang':
+        return '🚀';
+      case 'rust':
+        return '🦀';
+      case 'aws':
+        return '☁️';
+      case 'kafka':
+        return '📨';
+      case 'flutter':
+        return '📱';
+      case 'angular':
+        return '🔺';
+      case 'python':
+        return '🐍';
+      case 'postgresql':
+        return '🐘';
+      case 'generative ai':
+      case 'ai & machine learning':
+        return '🤖';
+      case 'cybersecurity':
+        return '🛡️';
+      default:
+        return '💻';
+    }
+  }
+
   // Text colors
   static const Color textPrimary = Color(0xFFF8FAFC);
   static const Color textSecondary = Color(0xFF94A3B8);

@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -196,7 +197,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             const SizedBox(height: 10),
                             Text(
                               resolvedCourse.title,
-                              style: const TextStyle(
+                              style: GoogleFonts.outfit(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -206,9 +207,20 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${resolvedCourse.university} • ${resolvedCourse.author}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                            Row(
+                              children: [
+                                Text(
+                                  resolvedCourse.university,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.verified, size: 14, color: AppTheme.primaryGlow),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '• ${resolvedCourse.author}',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -230,7 +242,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       Clipboard.setData(ClipboardData(text: resolvedCourse.magnetUri));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('BitTorrent magnet link copied to clipboard!'),
+                          content: Text('Course curriculum link copied to clipboard!'),
                           backgroundColor: AppTheme.primary,
                         ),
                       );

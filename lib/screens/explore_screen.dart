@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/course.dart';
@@ -56,36 +57,52 @@ class _ExploreScreenState extends State<ExploreScreen> {
           fit: BoxFit.contain,
         ),
         actions: [
-          InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => SourcesCreditsDialog.show(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.cardBorder),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.secondary,
-                      shape: BoxShape.circle,
-                    ),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.cardBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.secondary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.secondary,
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Credits & Sources',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  '18 LIVE TRACKS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.8,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.verified_user_outlined, size: 20, color: AppTheme.primaryGlow),
+            tooltip: 'Credits & Verified Sources',
+            onPressed: () => SourcesCreditsDialog.show(context),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Consumer<CourseProvider>(
@@ -149,6 +166,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     lastCourse.overallProgress > 0)
                   SliverToBoxAdapter(
                     child: _buildQuickResumeCard(context, lastCourse),
+                  )
+                else if (provider.searchQuery.isEmpty && provider.selectedTechStack == null)
+                  SliverToBoxAdapter(
+                    child: _buildExecutiveSpotlightBanner(context),
                   ),
 
                 // POPULAR TECH STACKS PILLS MATRIX
@@ -203,7 +224,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: FilterChip(
-                            label: Text(tech),
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(AppTheme.getTechEmoji(tech), style: const TextStyle(fontSize: 12)),
+                                const SizedBox(width: 5),
+                                Text(tech),
+                              ],
+                            ),
                             selected: isSelected,
                             onSelected: (_) => provider.setTechStack(tech),
                             labelStyle: TextStyle(
@@ -211,11 +239,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                               color: isSelected ? Colors.white : AppTheme.textPrimary,
                             ),
-                            selectedColor: AppTheme.primary,
+                            selectedColor: AppTheme.getTechColor(tech).withAlpha(180),
                             backgroundColor: AppTheme.surface,
                             checkmarkColor: Colors.white,
                             side: BorderSide(
-                              color: isSelected ? AppTheme.primaryGlow : AppTheme.cardBorder,
+                              color: isSelected ? AppTheme.getTechColor(tech) : AppTheme.cardBorder,
                               width: isSelected ? 1.5 : 1,
                             ),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -413,6 +441,126 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildExecutiveSpotlightBanner(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F2642),
+            Color(0xFF0E1A2D),
+            Color(0xFF080E18),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppTheme.primaryGlow.withAlpha(70),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withAlpha(40),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withAlpha(35),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'ALIGNED ENTERPRISE ACADEMY',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: AppTheme.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.auto_awesome, color: AppTheme.accent, size: 18),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Production-Grade Engineering Upskilling',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.4,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Continuous technical mastery across Cloud, Distributed Microservices, AI & Systems Programming from MIT & top open institutions.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.45),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _buildSpotlightPill('18 Full Tracks', Icons.layers_outlined, AppTheme.primaryGlow),
+              const SizedBox(width: 8),
+              _buildSpotlightPill('1,200+ HD Lectures', Icons.ondemand_video_outlined, AppTheme.secondary),
+              const SizedBox(width: 8),
+              _buildSpotlightPill('100% Free OER', Icons.verified_outlined, AppTheme.accent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpotlightPill(String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withAlpha(18), width: 0.6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -831,20 +979,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             Text(
                               '${course.rating}',
                               style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
                                 color: Colors.white,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.people_outline, size: 14, color: AppTheme.textMuted),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.people_outline, size: 13, color: AppTheme.textMuted),
                             const SizedBox(width: 4),
                             Text(
                               '${course.enrolledCount}',
                               style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                             ),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.timer_outlined, size: 14, color: AppTheme.textMuted),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.timer_outlined, size: 13, color: AppTheme.textMuted),
                             const SizedBox(width: 4),
                             Text(
                               course.estimatedHours,
@@ -853,19 +1001,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceElevated,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.cardBorder),
-                          ),
-                          child: Text(
-                            course.level,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.secondary,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1B77BC), Color(0xFF0284C7)],
                             ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primary.withAlpha(90),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Explore',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.white),
+                            ],
                           ),
                         ),
                       ],
