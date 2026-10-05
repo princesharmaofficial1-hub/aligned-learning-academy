@@ -352,6 +352,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     }
     if (_youtubeController != null) {
       _youtubeController!.currentTime.then((curr) {
+        if (!mounted || _youtubeController == null) return;
         _youtubeController!.seekTo(seconds: (curr + seconds).clamp(0, 999999));
       });
       _startHideControlsTimer();
@@ -375,6 +376,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       _currentSpeed = speed;
     });
     _controller?.setPlaybackSpeed(speed);
+    _youtubeController?.setPlaybackRate(speed);
     _startHideControlsTimer();
   }
 

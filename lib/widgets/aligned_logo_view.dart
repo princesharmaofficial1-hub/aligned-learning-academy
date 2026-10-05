@@ -21,7 +21,7 @@ class AlignedLogoView extends StatelessWidget {
       width: width,
       fit: fit,
       placeholderBuilder: (context) => Image.asset(
-        'assets/images/aligned_logo.png',
+        'assets/images/aligned_icon.png',
         height: height,
         width: width,
         fit: fit,
