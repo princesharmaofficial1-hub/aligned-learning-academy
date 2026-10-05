@@ -149,7 +149,55 @@ class AppTheme {
     end: Alignment.bottomCenter,
   );
 
+  static Color getLevelColor(String level) {
+    switch (level.toLowerCase()) {
+      case 'beginner':
+        return const Color(0xFF38BDF8); // Cyan
+      case 'intermediate':
+        return const Color(0xFF4ED44E); // Aligned Green
+      case 'advanced':
+        return const Color(0xFFA855F7); // Purple
+      case 'architect':
+      case 'expert':
+        return const Color(0xFFF59E0B); // Amber
+      default:
+        return AppTheme.secondary;
+    }
+  }
+
   // Card Decorations
+  static BoxDecoration luxuryCardDecoration({
+    double radius = 18,
+    Color borderColor = cardBorder,
+    Color? surfaceColor,
+    bool hasGlow = false,
+    Color glowColor = primary,
+  }) {
+    return BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF131A2B), Color(0xFF0D1322)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: borderColor, width: 1.1),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withAlpha(120),
+          blurRadius: 18,
+          offset: const Offset(0, 6),
+        ),
+        if (hasGlow)
+          BoxShadow(
+            color: glowColor.withAlpha(35),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+      ],
+    );
+  }
+
   static BoxDecoration glassCardDecoration({
     double radius = 18,
     Color borderColor = cardBorder,

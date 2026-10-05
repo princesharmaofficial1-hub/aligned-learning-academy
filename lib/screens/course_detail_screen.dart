@@ -94,11 +94,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           backgroundColor: AppTheme.background,
           body: CustomScrollView(
             slivers: [
-              // Modern Hero Sliver App Bar with Course Thumbnail
+              // Modern Hero Sliver App Bar with Course Thumbnail & Frosted Controls
               SliverAppBar(
-                expandedHeight: 260,
+                expandedHeight: 270,
                 pinned: true,
                 backgroundColor: AppTheme.surface,
+                leading: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(160),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -113,13 +127,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       else
                         _buildHeroFallback(),
 
-                      // Dark Vignette Gradient
+                      // Luxury Dark Vignette Gradient
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Colors.black.withAlpha(120),
-                              AppTheme.surface.withAlpha(180),
+                              Colors.black.withAlpha(140),
+                              Colors.black.withAlpha(80),
+                              AppTheme.surface.withAlpha(200),
                               AppTheme.background,
                             ],
                             begin: Alignment.topCenter,
@@ -138,18 +153,33 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primary,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    resolvedCourse.category,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                    color: AppTheme.getTechColor(resolvedCourse.category).withAlpha(40),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppTheme.getTechColor(resolvedCourse.category).withAlpha(120),
+                                      width: 0.8,
                                     ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        AppTheme.getTechEmoji(resolvedCourse.category),
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        resolvedCourse.category.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.5,
+                                          color: AppTheme.getTechColor(resolvedCourse.category),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -157,15 +187,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: AppTheme.surfaceElevated,
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: AppTheme.cardBorder),
                                   ),
                                   child: Text(
                                     resolvedCourse.level,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
-                                      color: AppTheme.secondary,
-                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.getLevelColor(resolvedCourse.level),
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ),
@@ -173,20 +203,21 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accent.withAlpha(40),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.accent.withAlpha(100), width: 0.8),
+                                    color: AppTheme.secondary.withAlpha(25),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.8),
                                   ),
                                   child: Row(
-                                    children: [
-                                      const Icon(Icons.verified_outlined, size: 13, color: AppTheme.secondary),
-                                      const SizedBox(width: 4),
+                                    children: const [
+                                      Icon(Icons.verified_rounded, size: 13, color: AppTheme.secondary),
+                                      SizedBox(width: 4),
                                       Text(
                                         'Enterprise Verified',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.accent,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.4,
+                                          color: AppTheme.secondary,
                                         ),
                                       ),
                                     ],
@@ -198,24 +229,24 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                             Text(
                               resolvedCourse.title,
                               style: GoogleFonts.outfit(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w800,
                                 color: Colors.white,
                                 height: 1.25,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Row(
                               children: [
                                 Text(
                                   resolvedCourse.university,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.verified, size: 14, color: AppTheme.primaryGlow),
-                                const SizedBox(width: 4),
+                                const Icon(Icons.verified_rounded, size: 14, color: AppTheme.primaryGlow),
+                                const SizedBox(width: 6),
                                 Text(
                                   '• ${resolvedCourse.author}',
                                   style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
@@ -229,24 +260,42 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   ),
                 ),
                 actions: [
-                  IconButton(
-                    icon: Icon(
-                      resolvedCourse.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                      color: resolvedCourse.isBookmarked ? AppTheme.accent : Colors.white,
+                  Container(
+                    margin: const EdgeInsets.only(right: 6, top: 8, bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(160),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
                     ),
-                    onPressed: () => provider.toggleBookmark(resolvedCourse.id),
+                    child: IconButton(
+                      iconSize: 18,
+                      icon: Icon(
+                        resolvedCourse.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        color: resolvedCourse.isBookmarked ? AppTheme.accent : Colors.white,
+                      ),
+                      onPressed: () => provider.toggleBookmark(resolvedCourse.id),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.share_outlined),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: resolvedCourse.magnetUri));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Course curriculum link copied to clipboard!'),
-                          backgroundColor: AppTheme.primary,
-                        ),
-                      );
-                    },
+                  Container(
+                    margin: const EdgeInsets.only(right: 14, top: 8, bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(160),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
+                    ),
+                    child: IconButton(
+                      iconSize: 18,
+                      icon: const Icon(Icons.share_rounded, color: Colors.white),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: resolvedCourse.magnetUri));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Course curriculum link copied to clipboard!'),
+                            backgroundColor: AppTheme.primary,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -806,11 +855,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.cardBorder),
-      ),
+      decoration: AppTheme.luxuryCardDecoration(radius: 16),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -961,10 +1006,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.cardBorder),
+      decoration: AppTheme.luxuryCardDecoration(
+        radius: 16,
+        hasGlow: lecture.watchProgress > 0 && !isCompleted,
+        glowColor: AppTheme.secondary,
       ),
       child: Material(
         color: Colors.transparent,
@@ -991,19 +1036,29 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? AppTheme.success.withAlpha(40)
-                        : AppTheme.surfaceElevated,
+                        ? AppTheme.success.withAlpha(35)
+                        : (lecture.watchProgress > 0
+                            ? AppTheme.secondary.withAlpha(25)
+                            : AppTheme.surfaceElevated),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isCompleted
+                          ? AppTheme.success.withAlpha(120)
+                          : (lecture.watchProgress > 0
+                              ? AppTheme.secondary.withAlpha(100)
+                              : AppTheme.cardBorder),
+                      width: 1,
+                    ),
                   ),
                   child: Center(
                     child: isCompleted
-                        ? const Icon(Icons.check, color: AppTheme.success, size: 18)
+                        ? const Icon(Icons.check_rounded, color: AppTheme.success, size: 18)
                         : Text(
                             '${lecture.number}',
-                            style: const TextStyle(
+                            style: GoogleFonts.outfit(
                               fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w800,
+                              color: lecture.watchProgress > 0 ? AppTheme.secondary : AppTheme.textPrimary,
                             ),
                           ),
                   ),
@@ -1017,9 +1072,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     children: [
                       Text(
                         lecture.title,
-                        style: const TextStyle(
+                        style: GoogleFonts.outfit(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                         maxLines: 2,
@@ -1032,23 +1087,49 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Row(
                         children: [
-                          Text(
-                            lecture.duration,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceElevated,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.cardBorder),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.schedule_rounded, size: 10, color: AppTheme.textMuted),
+                                const SizedBox(width: 3),
+                                Text(
+                                  lecture.duration,
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
                           ),
                           if (lecture.watchProgress > 0) ...[
-                            const Text(' • ', style: TextStyle(color: AppTheme.textMuted)),
-                            Text(
-                              isCompleted
-                                  ? '✓ Watched'
-                                  : '${(lecture.watchProgress * 100).toInt()}% watched',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isCompleted ? AppTheme.success : AppTheme.secondary,
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isCompleted ? AppTheme.success.withAlpha(25) : AppTheme.secondary.withAlpha(25),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isCompleted ? AppTheme.success.withAlpha(90) : AppTheme.secondary.withAlpha(90),
+                                  width: 0.6,
+                                ),
+                              ),
+                              child: Text(
+                                isCompleted
+                                    ? '✓ COMPLETED'
+                                    : '${(lecture.watchProgress * 100).toInt()}% WATCHED',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: isCompleted ? AppTheme.success : AppTheme.secondary,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.4,
+                                ),
                               ),
                             ),
                           ],
@@ -1057,11 +1138,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 6),
 
                 // Download toggle button
                 IconButton(
                   icon: Icon(
-                    lecture.isDownloaded ? Icons.download_done : Icons.download_outlined,
+                    lecture.isDownloaded ? Icons.download_done_rounded : Icons.download_outlined,
                     size: 20,
                     color: lecture.isDownloaded ? AppTheme.secondary : AppTheme.textMuted,
                   ),
@@ -1081,8 +1163,26 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   },
                 ),
 
-                // Play icon
-                const Icon(Icons.play_circle_outline, color: AppTheme.primaryGlow, size: 24),
+                // Interactive Watch Pill Button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withAlpha(35),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primaryGlow.withAlpha(80), width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.play_arrow_rounded, color: AppTheme.primaryGlow, size: 14),
+                      SizedBox(width: 2),
+                      Text(
+                        'Play',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGlow),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
