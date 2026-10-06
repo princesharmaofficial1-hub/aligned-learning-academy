@@ -65,12 +65,10 @@ class AcademicTorrentsService {
     try {
       final String searchQuery;
       if (query != null && query.trim().isNotEmpty) {
-        final q = Uri.encodeComponent(query.trim());
-        searchQuery =
-            '(title:($q)+OR+description:($q))+AND+(course+OR+tutorial+OR+programming+OR+bootcamp+OR+developer+OR+engineering)+AND+mediatype:(movies)';
+        searchQuery = _buildArchiveSearchQuery(query.trim());
       } else {
         searchQuery =
-            '(title:(course+OR+tutorial+OR+bootcamp+OR+programming+OR+developer)+AND+(python+OR+react+OR+javascript+OR+nodejs+OR+golang+OR+docker+OR+kubernetes+OR+flutter+OR+devops+OR+sql+OR+database))+AND+mediatype:(movies)';
+            '(title:(course+OR+tutorial+OR+bootcamp+OR+programming+OR+developer)+AND+(python+OR+react+OR+javascript+OR+nodejs+OR+golang+OR+docker+OR+kubernetes+OR+flutter+OR+devops+OR+azure+OR+aws+OR+gcp+OR+terraform+OR+sql+OR+database+OR+java+OR+csharp))+AND+mediatype:(movies)';
       }
 
       final url =
@@ -354,52 +352,7 @@ class AcademicTorrentsService {
       university = 'UC Berkeley';
     }
 
-    String cat = 'Python & Backend';
-    final lower = (title + description).toLowerCase();
-    List<String> tags = ['Software Engineering'];
-
-    if (lower.contains('security') ||
-        lower.contains('crypto') ||
-        lower.contains('cyber')) {
-      cat = 'Cybersecurity';
-      tags = ['Security', 'Zero Trust', 'Cybersecurity'];
-    } else if (lower.contains('react') ||
-        lower.contains('angular') ||
-        lower.contains('frontend') ||
-        lower.contains('flutter')) {
-      cat = 'Frontend & Mobile';
-      tags = ['Frontend', 'JavaScript', 'TypeScript'];
-    } else if (lower.contains('docker') ||
-        lower.contains('kubernetes') ||
-        lower.contains('k8s') ||
-        lower.contains('cloud') ||
-        lower.contains('aws')) {
-      cat = 'Cloud & DevOps';
-      tags = ['Cloud', 'DevOps', 'Docker'];
-    } else if (lower.contains('neural') ||
-        lower.contains('learning') ||
-        lower.contains('ai') ||
-        lower.contains('llm')) {
-      cat = 'AI & Machine Learning';
-      tags = ['AI', 'Machine Learning', 'Data'];
-    } else if (lower.contains('algorithm') ||
-        lower.contains('system design') ||
-        lower.contains('architecture')) {
-      cat = 'System Design & Architecture';
-      tags = ['System Design', 'Algorithms', 'Architecture'];
-    } else if (lower.contains('sql') ||
-        lower.contains('database') ||
-        lower.contains('postgres') ||
-        lower.contains('kafka')) {
-      cat = 'Databases & Data Streaming';
-      tags = ['Databases', 'SQL', 'Kafka'];
-    } else if (lower.contains('node') ||
-        lower.contains('go') ||
-        lower.contains('rust') ||
-        lower.contains('backend')) {
-      cat = 'Backend & Microservices';
-      tags = ['Backend', 'Microservices', 'APIs'];
-    }
+    final (cat, tags) = _categorizeAndTag(title, description);
 
     final webSeed = 'https://archive.org/details/$identifier';
     final documents =
@@ -451,39 +404,7 @@ class AcademicTorrentsService {
       university = 'Harvard CS50';
     }
 
-    String cat = 'Python & Backend';
-    final lower = (title + description).toLowerCase();
-    List<String> tags = ['Engineering'];
-
-    if (lower.contains('machine learning') ||
-        lower.contains('neural') ||
-        lower.contains('ai')) {
-      cat = 'AI & Machine Learning';
-      tags = ['AI', 'Data Science', 'Machine Learning'];
-    } else if (lower.contains('security') ||
-        lower.contains('crypto') ||
-        lower.contains('cyber')) {
-      cat = 'Cybersecurity';
-      tags = ['Security', 'Zero Trust', 'Cybersecurity'];
-    } else if (lower.contains('frontend') ||
-        lower.contains('react') ||
-        lower.contains('web')) {
-      cat = 'Frontend & Mobile';
-      tags = ['Frontend', 'JavaScript', 'Web'];
-    } else if (lower.contains('cloud') ||
-        lower.contains('docker') ||
-        lower.contains('devops')) {
-      cat = 'Cloud & DevOps';
-      tags = ['Cloud', 'DevOps', 'Docker'];
-    } else if (lower.contains('database') || lower.contains('sql')) {
-      cat = 'Databases & Data Streaming';
-      tags = ['Databases', 'SQL', 'PostgreSQL'];
-    } else if (lower.contains('system design') ||
-        lower.contains('architecture') ||
-        lower.contains('algorithm')) {
-      cat = 'System Design & Architecture';
-      tags = ['System Design', 'Algorithms', 'Architecture'];
-    }
+    final (cat, tags) = _categorizeAndTag(title, description);
 
     final double gb = sizeBytes / (1024 * 1024 * 1024);
     final sizeFormatted = gb > 0 ? '${gb.toStringAsFixed(1)} GB' : '4.2 GB';
@@ -521,6 +442,204 @@ class AcademicTorrentsService {
       badge: 'Enterprise Track',
       isCurriculumLoaded: false,
     );
+  }
+
+  static String _buildArchiveSearchQuery(String raw) {
+    final q = raw.trim().toLowerCase();
+    String target;
+    if (q == 'c++' || q == 'cpp') {
+      target = '(cplusplus+OR+cpp+OR+"c++")';
+    } else if (q == 'c#' ||
+        q == 'csharp' ||
+        q == '.net' ||
+        q == 'dotnet' ||
+        q == 'asp.net') {
+      target = '(csharp+OR+"c#"+OR+dotnet+OR+".net")';
+    } else if (q == 'gcp' || q.contains('google cloud')) {
+      target = '("google+cloud"+OR+gcp)';
+    } else if (q == 'azure' || q == 'az') {
+      target = '(azure+OR+"microsoft+azure")';
+    } else if (q == 'k8s' || q == 'kube' || q == 'kubernetes') {
+      target = '(kubernetes+OR+k8s)';
+    } else if (q == 'iac' || q == 'terraform') {
+      target = '(terraform+OR+"infrastructure+as+code")';
+    } else if (q == 'spring' || q.contains('spring boot')) {
+      target = '("spring+boot"+OR+"spring+framework")';
+    } else if (q == 'dsa' || q == 'algo' || q.contains('algorithm')) {
+      target = '("data+structures"+OR+algorithms)';
+    } else if (q == 'rn' || q.contains('react native')) {
+      target = '("react+native"+OR+expo)';
+    } else if (q == 'vue') {
+      target = '(vue+OR+pinia)';
+    } else if (q == 'cicd' || q == 'ci/cd' || q.contains('devops')) {
+      target = '(devops+OR+"ci/cd"+OR+pipeline)';
+    } else if (q == 'android' || q == 'kotlin') {
+      target = '(android+OR+kotlin)';
+    } else if (q == 'swift' || q == 'ios' || q == 'swiftui') {
+      target = '(swift+OR+ios+OR+swiftui)';
+    } else if (q == 'php' || q == 'laravel') {
+      target = '(php+OR+laravel)';
+    } else if (q == 'git' || q == 'github') {
+      target = '(git+OR+github)';
+    } else if (q == 'sec' || q == 'cyber' || q.contains('cybersecurity')) {
+      target = '(cybersecurity+OR+"ethical+hacking"+OR+security)';
+    } else {
+      final sanitized =
+          q.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\s]'), ' ').trim();
+      final words = sanitized
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .toList();
+      target = words.length > 1
+          ? '("${words.join('+')}")'
+          : (words.isNotEmpty ? words.first : q);
+    }
+
+    return 'title:$target+AND+(course+OR+tutorial+OR+learn+OR+bootcamp+OR+developer+OR+engineering+OR+guide+OR+masterclass)+AND+mediatype:(movies)';
+  }
+
+  static (String, List<String>) _categorizeAndTag(
+      String title, String description) {
+    final lower = '$title $description'.toLowerCase();
+    final tags = <String>[];
+
+    if (lower.contains('azure')) tags.add('Azure');
+    if (lower.contains('aws')) tags.add('AWS');
+    if (lower.contains('gcp') || lower.contains('google cloud')) tags.add('GCP');
+    if (lower.contains('terraform') || lower.contains('iac')) tags.add('Terraform');
+    if (lower.contains('docker')) tags.add('Docker');
+    if (lower.contains('kubernetes') ||
+        lower.contains('k8s') ||
+        lower.contains('aks') ||
+        lower.contains('gke')) {
+      tags.add('Kubernetes');
+    }
+    if (lower.contains('devops') || lower.contains('azure devops')) tags.add('DevOps');
+    if (lower.contains('ci/cd') || lower.contains('pipeline')) tags.add('CI/CD');
+    if (lower.contains('python')) tags.add('Python');
+    if (lower.contains('fastapi')) tags.add('FastAPI');
+    if (lower.contains('django')) tags.add('Django');
+    if (lower.contains('react native') || lower.contains('expo')) {
+      tags.add('React Native');
+    } else if (lower.contains('react') || lower.contains('next.js')) {
+      tags.add('React');
+    }
+    if (lower.contains('vue') || lower.contains('pinia')) tags.add('Vue');
+    if (lower.contains('node') || lower.contains('express')) tags.add('Node.js');
+    if (lower.contains('flutter') || lower.contains('dart')) tags.add('Flutter');
+    if (lower.contains('angular')) tags.add('Angular');
+    if (lower.contains('go') || lower.contains('golang')) tags.add('Go');
+    if (lower.contains('rust')) tags.add('Rust');
+    if (lower.contains('kafka')) tags.add('Kafka');
+    if (lower.contains('postgres') ||
+        lower.contains('sql') ||
+        lower.contains('database')) {
+      tags.add('PostgreSQL');
+    }
+    if (lower.contains('cyber') || lower.contains('security')) {
+      tags.add('Cybersecurity');
+    }
+    if (lower.contains('ethical hack') ||
+        lower.contains('kali') ||
+        lower.contains('penetration test')) {
+      tags.add('Ethical Hacking');
+    }
+    if (lower.contains('ai') ||
+        lower.contains('machine learning') ||
+        lower.contains('neural') ||
+        lower.contains('deep learning')) {
+      tags.add('Generative AI');
+    }
+    if (lower.contains('system design') || lower.contains('architecture')) {
+      tags.add('System Design');
+    }
+    if (lower.contains('algorithm') ||
+        lower.contains('data structure') ||
+        lower.contains('dsa')) {
+      tags.add('Data Structures');
+    }
+    if (lower.contains('linux') || lower.contains('bash')) tags.add('Linux');
+    if (lower.contains('java') && !lower.contains('javascript')) tags.add('Java');
+    if (lower.contains('spring')) tags.add('Spring Boot');
+    if (lower.contains('c++') || lower.contains('cpp')) tags.add('C++');
+    if (lower.contains('c#') ||
+        lower.contains('csharp') ||
+        lower.contains('.net') ||
+        lower.contains('dotnet')) {
+      tags.add('C# / .NET');
+    }
+    if (lower.contains('kotlin') || lower.contains('android')) {
+      tags.add('Android / Kotlin');
+    }
+    if (lower.contains('swift') ||
+        lower.contains('ios') ||
+        lower.contains('swiftui')) {
+      tags.add('iOS / Swift');
+    }
+    if (lower.contains('php') || lower.contains('laravel')) {
+      tags.add('PHP & Laravel');
+    }
+    if (lower.contains('mongo') || lower.contains('nosql')) tags.add('MongoDB');
+    if (lower.contains('git') || lower.contains('github')) tags.add('Git & GitHub');
+
+    if (tags.isEmpty) {
+      tags.add('Software Engineering');
+    }
+
+    String cat = 'Python & Backend';
+    if (lower.contains('security') ||
+        lower.contains('crypto') ||
+        lower.contains('cyber') ||
+        lower.contains('hack')) {
+      cat = 'Cybersecurity';
+    } else if (lower.contains('react') ||
+        lower.contains('angular') ||
+        lower.contains('frontend') ||
+        lower.contains('flutter') ||
+        lower.contains('android') ||
+        lower.contains('ios') ||
+        lower.contains('swift') ||
+        lower.contains('vue') ||
+        lower.contains('web')) {
+      cat = 'Frontend & Mobile';
+    } else if (lower.contains('docker') ||
+        lower.contains('kubernetes') ||
+        lower.contains('k8s') ||
+        lower.contains('cloud') ||
+        lower.contains('aws') ||
+        lower.contains('azure') ||
+        lower.contains('gcp') ||
+        lower.contains('terraform') ||
+        lower.contains('devops') ||
+        lower.contains('git')) {
+      cat = 'Cloud & DevOps';
+    } else if (lower.contains('neural') ||
+        lower.contains('learning') ||
+        lower.contains('ai') ||
+        lower.contains('llm')) {
+      cat = 'AI & Machine Learning';
+    } else if (lower.contains('algorithm') ||
+        lower.contains('system design') ||
+        lower.contains('architecture') ||
+        lower.contains('dsa')) {
+      cat = 'System Design & Architecture';
+    } else if (lower.contains('sql') ||
+        lower.contains('database') ||
+        lower.contains('postgres') ||
+        lower.contains('mongo') ||
+        lower.contains('kafka')) {
+      cat = 'Databases & Data Streaming';
+    } else if (lower.contains('node') ||
+        lower.contains('go') ||
+        lower.contains('rust') ||
+        lower.contains('java') ||
+        lower.contains('c#') ||
+        lower.contains('c++') ||
+        lower.contains('backend')) {
+      cat = 'Backend & Microservices';
+    }
+
+    return (cat, tags);
   }
 
   String _extractCourseCode(String title) {
@@ -727,6 +846,12 @@ class AcademicTorrentsService {
       'aws',
       'azure',
       'gcp',
+      'google cloud',
+      'terraform',
+      'iac',
+      'ansible',
+      'jenkins',
+      'gitops',
       'golang',
       'go language',
       'rust',
@@ -1539,6 +1664,520 @@ class AcademicTorrentsService {
             'tech_linux_018',
             'Enterprise Linux Hardening',
             'ethical-hacking-using-kali-linux-from-a-to-z-course'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 19. Microsoft Azure Solutions Architect & AZ-104/AZ-305 Specialization
+      Course(
+        id: 'tech_azure_019',
+        title: 'Microsoft Azure Solutions Architect & AZ-104/AZ-305 Path',
+        code: 'AZURE-ARCH',
+        university: 'Microsoft Cloud & Enterprise Architecture',
+        category: 'Cloud & DevOps',
+        description:
+            'Enterprise Microsoft Azure architecture: Resource Groups, VNet peering, Azure Active Directory (Entra ID), Virtual Machines, Azure App Service, AKS clusters, Storage Accounts, Cosmos DB, Azure Monitor, and enterprise landing zones.',
+        infoHash: 'techazure019hash',
+        sizeFormatted: '21.6 GB',
+        webSeedUrl:
+            'https://archive.org/details/microsoft-azure-solutions-architect-series-2020-az-303-and-az-304-path',
+        archiveIdentifier:
+            'microsoft-azure-solutions-architect-series-2020-az-303-and-az-304-path',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=800&auto=format&fit=crop&q=80',
+        seeders: 118,
+        techStacks: const [
+          'Azure',
+          'Cloud',
+          'Azure DevOps',
+          'Kubernetes',
+          'Security',
+          'DevOps'
+        ],
+        level: 'Intermediate',
+        rating: 4.9,
+        enrolledCount: 68400,
+        estimatedHours: '38 hrs',
+        author: 'Microsoft Certified Solutions Architects',
+        badge: 'Bestseller',
+        documents: _generateDocumentsForCourse(
+            'tech_azure_019',
+            'Azure Solutions Architect',
+            'microsoft-azure-solutions-architect-series-2020-az-303-and-az-304-path'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 20. Google Cloud Platform (GCP) Associate & Solutions Architect
+      Course(
+        id: 'tech_gcp_020',
+        title: 'Google Cloud Platform (GCP) Associate & Solutions Architect',
+        code: 'GCP-ARCH',
+        university: 'Google Cloud Certified Guild',
+        category: 'Cloud & DevOps',
+        description:
+            'Comprehensive Google Cloud infrastructure: Compute Engine, Google Kubernetes Engine (GKE), VPC networking, Cloud Storage, BigQuery data analytics, Cloud IAM, Cloud Functions, and Anthos multi-cloud orchestration.',
+        infoHash: 'techgcp020hash',
+        sizeFormatted: '15.4 GB',
+        webSeedUrl:
+            'https://archive.org/details/ftuforums.com-Udemy-Google-Certified-Associate-Cloud-Engineer-Certification',
+        archiveIdentifier:
+            'ftuforums.com-Udemy-Google-Certified-Associate-Cloud-Engineer-Certification',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&auto=format&fit=crop&q=80',
+        seeders: 102,
+        techStacks: const [
+          'GCP',
+          'Google Cloud',
+          'Cloud',
+          'Kubernetes',
+          'BigQuery',
+          'DevOps'
+        ],
+        level: 'Intermediate',
+        rating: 4.9,
+        enrolledCount: 54100,
+        estimatedHours: '30 hrs',
+        author: 'Google Cloud Certified Architects',
+        badge: 'Enterprise Track',
+        documents: _generateDocumentsForCourse(
+            'tech_gcp_020',
+            'Google Cloud Associate Engineer',
+            'ftuforums.com-Udemy-Google-Certified-Associate-Cloud-Engineer-Certification'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 21. Terraform & Multi-Cloud Infrastructure as Code (IaC)
+      Course(
+        id: 'tech_terraform_021',
+        title: 'Terraform & Multi-Cloud Infrastructure as Code (IaC)',
+        code: 'TERRAFORM-IAC',
+        university: 'HashiCorp Certified & Cloud Automation Guild',
+        category: 'Cloud & DevOps',
+        description:
+            'Automate and provision multi-cloud infrastructure: HCL language syntax, state file management, remote backends (S3/Azure Blob/GCS), Terraform modules, workspaces, drift detection, and automated CI/CD pipeline integration.',
+        infoHash: 'techterraform021hash',
+        sizeFormatted: '8.6 GB',
+        webSeedUrl:
+            'https://archive.org/details/hashi-corp-certified-terraform-associate',
+        archiveIdentifier:
+            'hashi-corp-certified-terraform-associate',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
+        seeders: 94,
+        techStacks: const [
+          'Terraform',
+          'IaC',
+          'Cloud',
+          'AWS',
+          'Azure',
+          'DevOps'
+        ],
+        level: 'All Levels',
+        rating: 4.9,
+        enrolledCount: 47200,
+        estimatedHours: '18 hrs',
+        author: 'HashiCorp Certified Instructors',
+        badge: 'Top Rated',
+        documents: _generateDocumentsForCourse(
+            'tech_terraform_021',
+            'Terraform Multi-Cloud Automation',
+            'hashi-corp-certified-terraform-associate'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 22. Azure DevOps, AKS & Terraform CI/CD Masterclass
+      Course(
+        id: 'tech_azure_aks_devops_022',
+        title: 'Azure DevOps, AKS & Terraform CI/CD Masterclass',
+        code: 'AZ-DEVOPS-AKS',
+        university: 'Azure Cloud Engineering Guild',
+        category: 'Cloud & DevOps',
+        description:
+            'End-to-end production CI/CD on Microsoft Azure: Azure Kubernetes Service (AKS) clustering, Azure DevOps YAML build & release pipelines, infrastructure automation with Terraform, Helm charts, and GitOps workflows.',
+        infoHash: 'techazureaks022hash',
+        sizeFormatted: '13.2 GB',
+        webSeedUrl:
+            'https://archive.org/details/azure-kubernetes-service-with-azure-dev-ops-and-terraform',
+        archiveIdentifier:
+            'azure-kubernetes-service-with-azure-dev-ops-and-terraform',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1618401471353-b98aedd04e11?w=800&auto=format&fit=crop&q=80',
+        seeders: 108,
+        techStacks: const [
+          'Azure',
+          'Azure DevOps',
+          'Terraform',
+          'Kubernetes',
+          'DevOps',
+          'CI/CD'
+        ],
+        level: 'Advanced',
+        rating: 4.9,
+        enrolledCount: 51800,
+        estimatedHours: '26 hrs',
+        author: 'Cloud DevOps Architecture Guild',
+        badge: 'Enterprise Track',
+        documents: _generateDocumentsForCourse(
+            'tech_azure_aks_devops_022',
+            'Azure AKS & DevOps Automation',
+            'azure-kubernetes-service-with-azure-dev-ops-and-terraform'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 23. Microsoft Azure Data Engineering & DP-900 Track
+      Course(
+        id: 'tech_azure_data_023',
+        title: 'Microsoft Azure Data Engineering & DP-900 / DP-203 Track',
+        code: 'AZ-DATA-ENG',
+        university: 'Azure Data & Analytics Core',
+        category: 'Databases & Data Streaming',
+        description:
+            'Core data engineering on Microsoft Azure: Relational and non-relational data services, Azure SQL Database, Cosmos DB, Azure Synapse Analytics, Data Factory ETL pipelines, and Databricks processing.',
+        infoHash: 'techazuredata023hash',
+        sizeFormatted: '10.5 GB',
+        webSeedUrl:
+            'https://archive.org/details/dp-900-microsoft-azure-data-fundamentals-preparation-course',
+        archiveIdentifier:
+            'dp-900-microsoft-azure-data-fundamentals-preparation-course',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80',
+        seeders: 95,
+        techStacks: const [
+          'Azure',
+          'Databases',
+          'SQL',
+          'Data Engineering',
+          'Cloud',
+          'Analytics'
+        ],
+        level: 'All Levels',
+        rating: 4.8,
+        enrolledCount: 39400,
+        estimatedHours: '20 hrs',
+        author: 'Microsoft Certified Data Engineers',
+        badge: 'Foundational',
+        documents: _generateDocumentsForCourse(
+            'tech_azure_data_023',
+            'Azure Data Engineering',
+            'dp-900-microsoft-azure-data-fundamentals-preparation-course'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 24. Vue.js 3, Pinia & Modern Frontend Architecture
+      Course(
+        id: 'tech_vue_024',
+        title: 'Vue.js 3, Pinia & Composition API Fullstack Guide',
+        code: 'VUE-PINIA',
+        university: 'Vue Core Guild & Academind',
+        category: 'Frontend & Mobile',
+        description:
+            'Complete reactive frontend mastery: Vue 3 Composition API, script setup, Pinia central state, Vue Router navigation guards, Vite build tooling, and Vitest component testing.',
+        infoHash: 'techvue024hash',
+        sizeFormatted: '14.6 GB',
+        webSeedUrl:
+            'https://archive.org/details/giga-course.-com-udemy-vue-the-complete-guide-incl.-router-composition-api',
+        archiveIdentifier:
+            'giga-course.-com-udemy-vue-the-complete-guide-incl.-router-composition-api',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80',
+        seeders: 92,
+        techStacks: const [
+          'Vue',
+          'JavaScript',
+          'TypeScript',
+          'Pinia',
+          'Frontend',
+          'Vite'
+        ],
+        level: 'Intermediate',
+        rating: 4.9,
+        enrolledCount: 43200,
+        estimatedHours: '28 hrs',
+        author: 'Maximilian Schwarzmüller & Vue Core',
+        badge: 'Bestseller',
+        documents: _generateDocumentsForCourse(
+            'tech_vue_024',
+            'Vue 3 & Pinia Architecture',
+            'giga-course.-com-udemy-vue-the-complete-guide-incl.-router-composition-api'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 25. Python & Django Enterprise Web Framework
+      Course(
+        id: 'tech_django_025',
+        title: 'Python & Django 5 Enterprise REST Framework',
+        code: 'DJANGO-PRO',
+        university: 'Django Software Foundation Guild',
+        category: 'Python & Backend',
+        description:
+            'Enterprise web application architecture with Python: Django ORM relational queries, Django REST Framework (DRF) serializers & viewsets, Celery asynchronous task queues, PostgreSQL, and JWT authentication.',
+        infoHash: 'techdjango025hash',
+        sizeFormatted: '16.2 GB',
+        webSeedUrl:
+            'https://archive.org/details/the-complete-python-course-including-django-web-framework',
+        archiveIdentifier:
+            'the-complete-python-course-including-django-web-framework',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+        seeders: 104,
+        techStacks: const [
+          'Django',
+          'Python',
+          'REST APIs',
+          'PostgreSQL',
+          'Backend',
+          'ORM'
+        ],
+        level: 'All Levels',
+        rating: 4.8,
+        enrolledCount: 51200,
+        estimatedHours: '34 hrs',
+        author: 'Enterprise Python Guild',
+        badge: 'Enterprise Track',
+        documents: _generateDocumentsForCourse(
+            'tech_django_025',
+            'Python & Django Architecture',
+            'the-complete-python-course-including-django-web-framework'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 26. React Native & Cross-Platform Mobile Engineering
+      Course(
+        id: 'tech_rn_026',
+        title: 'React Native: Native iOS & Android Mobile Engineering',
+        code: 'RN-MOBILE',
+        university: 'React Native Core Guild',
+        category: 'Frontend & Mobile',
+        description:
+            'Build high-performance native iOS and Android apps with React: Native device bridges, React Navigation 6, Expo & Bare CLI workflows, Redux Toolkit, SQLite offline caching, and responsive UI layout.',
+        infoHash: 'techrn026hash',
+        sizeFormatted: '18.1 GB',
+        webSeedUrl:
+            'https://archive.org/details/free-course-site.com-udemy-react-native-the-practical-guide-2021-edition_202203',
+        archiveIdentifier:
+            'free-course-site.com-udemy-react-native-the-practical-guide-2021-edition_202203',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800&auto=format&fit=crop&q=80',
+        seeders: 110,
+        techStacks: const [
+          'React Native',
+          'React',
+          'Mobile',
+          'iOS',
+          'Android',
+          'TypeScript'
+        ],
+        level: 'Intermediate',
+        rating: 4.9,
+        enrolledCount: 48600,
+        estimatedHours: '32 hrs',
+        author: 'Maximilian Schwarzmüller & React Native Guild',
+        badge: 'Top Rated',
+        documents: _generateDocumentsForCourse(
+            'tech_rn_026',
+            'React Native Engineering',
+            'free-course-site.com-udemy-react-native-the-practical-guide-2021-edition_202203'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 27. Android 14, Kotlin & Jetpack Compose Masterclass
+      Course(
+        id: 'tech_android_027',
+        title: 'Android 14, Kotlin & Jetpack Compose Masterclass',
+        code: 'KOTLIN-AND',
+        university: 'Google Android Developers & Udacity Guild',
+        category: 'Frontend & Mobile',
+        description:
+            'Modern native Android application engineering: Kotlin coroutines & flows, Jetpack Compose declarative UI, ViewModel & StateFlow architecture, Room SQLite database, Retrofit REST networking, and Material You design.',
+        infoHash: 'techandroid027hash',
+        sizeFormatted: '19.4 GB',
+        webSeedUrl:
+            'https://archive.org/details/FreeCoursesOnline.MeUDACITYAndroidDeveloperNanodegreeV7.0.0',
+        archiveIdentifier:
+            'FreeCoursesOnline.MeUDACITYAndroidDeveloperNanodegreeV7.0.0',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1607252650355-f7fd0460ccdb?w=800&auto=format&fit=crop&q=80',
+        seeders: 125,
+        techStacks: const [
+          'Android / Kotlin',
+          'Kotlin',
+          'Android',
+          'Mobile',
+          'Jetpack Compose',
+          'Coroutines'
+        ],
+        level: 'Intermediate',
+        rating: 4.9,
+        enrolledCount: 54100,
+        estimatedHours: '40 hrs',
+        author: 'Google Android Guild & Udacity',
+        badge: 'Bestseller',
+        documents: _generateDocumentsForCourse(
+            'tech_android_027',
+            'Android & Kotlin Architecture',
+            'FreeCoursesOnline.MeUDACITYAndroidDeveloperNanodegreeV7.0.0'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 28. Git, GitHub & Enterprise DevOps CI/CD Workflows
+      Course(
+        id: 'tech_git_028',
+        title: 'Git, GitHub & Enterprise DevOps CI/CD Workflows',
+        code: 'GIT-GITH',
+        university: 'Git Core & DevOps Architecture Guild',
+        category: 'Cloud & DevOps',
+        description:
+            'Master professional source code version control: Git internal plumbing & porcelain, advanced branch rebasing, merge conflict resolution, pull request code reviews, GitHub Actions CI/CD pipelines, and semantic versioning.',
+        infoHash: 'techgit028hash',
+        sizeFormatted: '9.2 GB',
+        webSeedUrl:
+            'https://archive.org/details/Git_and_GitHub_LiveLessons_Workshop',
+        archiveIdentifier: 'Git_and_GitHub_LiveLessons_Workshop',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1618401471353-b98aedd04e11?w=800&auto=format&fit=crop&q=80',
+        seeders: 98,
+        techStacks: const [
+          'Git & GitHub',
+          'Git',
+          'GitHub',
+          'CI/CD',
+          'DevOps',
+          'Version Control'
+        ],
+        level: 'All Levels',
+        rating: 4.9,
+        enrolledCount: 62400,
+        estimatedHours: '18 hrs',
+        author: 'Enterprise DevOps Core',
+        badge: 'Foundational',
+        documents: _generateDocumentsForCourse('tech_git_028',
+            'Git & GitHub LiveLessons', 'Git_and_GitHub_LiveLessons_Workshop'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 29. Ethical Hacking, Kali Linux & Advanced Penetration Testing
+      Course(
+        id: 'tech_ethical_hack_029',
+        title: 'Ethical Hacking, Kali Linux & Penetration Testing',
+        code: 'HACK-KALI',
+        university: 'Offensive Security & Red Team Guild',
+        category: 'Cybersecurity',
+        description:
+            'Practical offensive cybersecurity: Kali Linux toolchains, Nmap network reconnaissance, Metasploit exploitation framework, Wireshark packet analysis, Burp Suite web app security, vulnerability assessments, and remediation.',
+        infoHash: 'techhack029hash',
+        sizeFormatted: '15.1 GB',
+        webSeedUrl:
+            'https://archive.org/details/free-course-site.com-udemy-learn-ethical-hacking-advance-level-using-kali-linux',
+        archiveIdentifier:
+            'free-course-site.com-udemy-learn-ethical-hacking-advance-level-using-kali-linux',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+        seeders: 130,
+        techStacks: const [
+          'Ethical Hacking',
+          'Cybersecurity',
+          'Kali Linux',
+          'Security',
+          'Penetration Testing',
+          'Linux'
+        ],
+        level: 'Advanced',
+        rating: 4.9,
+        enrolledCount: 71200,
+        estimatedHours: '30 hrs',
+        author: 'Offensive Security & Red Team Core',
+        badge: 'Top Rated',
+        documents: _generateDocumentsForCourse(
+            'tech_ethical_hack_029',
+            'Kali Linux Penetration Testing',
+            'free-course-site.com-udemy-learn-ethical-hacking-advance-level-using-kali-linux'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 30. C# & .NET Core Enterprise Application Engineering
+      Course(
+        id: 'tech_csharp_030',
+        title: 'C# & .NET Core Enterprise Application Engineering',
+        code: 'CSHARP-NET',
+        university: '.NET Foundation & Enterprise Microsoft Guild',
+        category: 'Backend & Microservices',
+        description:
+            'Enterprise software architecture with C# and .NET: Object-oriented design patterns, LINQ queries, ASP.NET Core Web APIs, Entity Framework Core ORM, dependency injection, async/await multithreading, and unit testing.',
+        infoHash: 'techcsharp030hash',
+        sizeFormatted: '13.5 GB',
+        webSeedUrl:
+            'https://archive.org/details/course-for-free.com-csharp-advanced-1',
+        archiveIdentifier: 'course-for-free.com-csharp-advanced-1',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+        seeders: 92,
+        techStacks: const [
+          'C# / .NET',
+          'C#',
+          '.NET',
+          'ASP.NET',
+          'Backend',
+          'Entity Framework'
+        ],
+        level: 'Intermediate',
+        rating: 4.8,
+        enrolledCount: 38900,
+        estimatedHours: '26 hrs',
+        author: '.NET Enterprise Guild',
+        badge: 'Enterprise Track',
+        documents: _generateDocumentsForCourse('tech_csharp_030',
+            'C# & .NET Architecture', 'course-for-free.com-csharp-advanced-1'),
+        lectures: const [],
+        isCurriculumLoaded: false,
+      ),
+
+      // 31. PHP 8, MySQL & Fullstack Laravel Architecture
+      Course(
+        id: 'tech_php_031',
+        title: 'PHP 8, MySQL & Fullstack Laravel Architecture',
+        code: 'PHP-LARAV',
+        university: 'Laravel & PHP Modern Web Guild',
+        category: 'Frontend & Mobile',
+        description:
+            'Modern fullstack web development with PHP and MySQL: Object-oriented PHP 8, MySQL relational database design, MVC architecture, RESTful API design, authentication, session security, and deployment.',
+        infoHash: 'techphp031hash',
+        sizeFormatted: '14.0 GB',
+        webSeedUrl:
+            'https://archive.org/details/tutsgalaxy.netudemythecompletephpmysqlprofessionalcoursewith5projects',
+        archiveIdentifier:
+            'tutsgalaxy.netudemythecompletephpmysqlprofessionalcoursewith5projects',
+        thumbnailUrl:
+            'https://images.unsplash.com/photo-1516116211227-bbc0429f52f4?w=800&auto=format&fit=crop&q=80',
+        seeders: 88,
+        techStacks: const [
+          'PHP & Laravel',
+          'PHP',
+          'Laravel',
+          'MySQL',
+          'SQL',
+          'Backend'
+        ],
+        level: 'All Levels',
+        rating: 4.8,
+        enrolledCount: 34500,
+        estimatedHours: '28 hrs',
+        author: 'Modern PHP Engineering',
+        badge: 'Popular',
+        documents: _generateDocumentsForCourse(
+            'tech_php_031',
+            'PHP & MySQL Professional',
+            'tutsgalaxy.netudemythecompletephpmysqlprofessionalcoursewith5projects'),
         lectures: const [],
         isCurriculumLoaded: false,
       ),

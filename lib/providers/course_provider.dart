@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/course.dart';
 import '../models/lecture.dart';
@@ -20,9 +21,12 @@ class CourseProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
   bool _hasMoreCourses = true;
   int _currentPage = 1;
+  Timer? _searchDebounce;
+  bool _isSearchingRemote = false;
 
   List<Course> get allCourses => _allCourses;
   bool get isLoading => _isLoading;
+  bool get isSearchingRemote => _isSearchingRemote;
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMoreCourses => _hasMoreCourses;
   String get searchQuery => _searchQuery;
@@ -43,48 +47,246 @@ class CourseProvider extends ChangeNotifier {
       ];
 
   List<String> get popularTechStacks => [
-        'FastAPI',
-        'React',
+        'Azure',
+        'AWS',
+        'GCP',
+        'Terraform',
+        'DevOps',
         'Docker',
-        'Node.js',
         'Kubernetes',
+        'Python',
+        'FastAPI',
+        'Django',
+        'React',
+        'React Native',
+        'Vue',
+        'Angular',
+        'Node.js',
+        'Java',
+        'Spring Boot',
+        'C++',
+        'C# / .NET',
         'Go',
         'Rust',
-        'AWS',
-        'Kafka',
+        'Android / Kotlin',
+        'iOS / Swift',
         'Flutter',
-        'Angular',
-        'Python',
+        'PHP & Laravel',
+        'Linux',
         'PostgreSQL',
-        'Generative AI',
+        'MongoDB',
+        'Kafka',
+        'System Design',
+        'Data Structures',
         'Cybersecurity',
+        'Ethical Hacking',
+        'Git & GitHub',
+        'Generative AI',
       ];
 
+  static List<String> _expandSearchSynonyms(String rawQuery) {
+    final q = rawQuery.toLowerCase().trim();
+    if (q.isEmpty) return const [];
+    final synonyms = <String>{q};
+
+    // Precise technology shortcuts & official aliases (NO generic catch-alls)
+    if (q == 'az' || q.contains('azure')) {
+      synonyms.addAll(['azure', 'microsoft azure']);
+    }
+    if (q == 'k8s' || q == 'kube' || q.contains('kubern')) {
+      synonyms.addAll(['kubernetes', 'k8s']);
+    }
+    if (q == 'gcp' || q.contains('google cloud')) {
+      synonyms.addAll(['gcp', 'google cloud']);
+    }
+    if (q == 'aws' || q.contains('amazon web')) {
+      synonyms.addAll(['aws', 'amazon web services']);
+    }
+    if (q == 'iac' || q.contains('terra')) {
+      synonyms.addAll(['terraform', 'iac']);
+    }
+    if (q == 'cicd' || q == 'ci/cd' || q.contains('devops')) {
+      synonyms.addAll(['devops', 'ci/cd']);
+    }
+    if (q == 'sec' || q.contains('cyber') || q.contains('security')) {
+      synonyms.addAll(['cybersecurity', 'security', 'zero trust']);
+    }
+    if (q == 'ai' ||
+        q == 'ml' ||
+        q.contains('genai') ||
+        q.contains('deep learning')) {
+      synonyms.addAll(['ai', 'machine learning', 'generative ai', 'deep learning']);
+    }
+    if (q == 'dsa' || q.contains('algo')) {
+      synonyms.addAll(['data structures', 'algorithms', 'dsa']);
+    }
+    if (q == 'postgres' || q == 'psql' || q.contains('postgre')) {
+      synonyms.addAll(['postgresql', 'postgres']);
+    }
+    if (q == 'sql' || q == 'mysql') {
+      synonyms.addAll(['sql', 'mysql', 'postgresql']);
+    }
+    if (q == 'js' || q == 'javascript') {
+      synonyms.addAll(['javascript', 'js']);
+    }
+    if (q == 'ts' || q == 'typescript') {
+      synonyms.addAll(['typescript', 'ts']);
+    }
+    if (q == 'cpp' || q == 'c++') {
+      synonyms.addAll(['c++', 'cpp']);
+    }
+    if (q == 'c#' ||
+        q == 'csharp' ||
+        q == '.net' ||
+        q == 'dotnet' ||
+        q == 'asp.net') {
+      synonyms.addAll(['c#', 'csharp', '.net', 'dotnet', 'c# / .net']);
+    }
+    if (q == 'java') {
+      synonyms.addAll(['java', 'spring boot']);
+    }
+    if (q == 'spring' || q.contains('spring boot')) {
+      synonyms.addAll(['spring boot', 'spring']);
+    }
+    if (q == 'kotlin' || q == 'android') {
+      synonyms.addAll(['kotlin', 'android', 'android / kotlin']);
+    }
+    if (q == 'swift' || q == 'ios' || q == 'swiftui') {
+      synonyms.addAll(['swift', 'ios', 'swiftui', 'ios / swift']);
+    }
+    if (q == 'php' || q == 'laravel') {
+      synonyms.addAll(['php', 'laravel', 'php & laravel']);
+    }
+    if (q == 'mongo' || q == 'mongodb' || q == 'nosql') {
+      synonyms.addAll(['mongodb', 'nosql', 'mongo']);
+    }
+    if (q == 'redis') {
+      synonyms.addAll(['redis', 'caching']);
+    }
+    if (q == 'graphql' || q == 'apollo') {
+      synonyms.addAll(['graphql']);
+    }
+    if (q == 'git' || q == 'github') {
+      synonyms.addAll(['git', 'github', 'git & github']);
+    }
+    if (q == 'hacking' ||
+        q == 'kali' ||
+        q == 'pentest' ||
+        q.contains('ethical hack')) {
+      synonyms.addAll(['ethical hacking', 'kali linux', 'cybersecurity']);
+    }
+    if (q == 'golang' || q == 'go') {
+      synonyms.addAll(['go', 'golang']);
+    }
+    if (q == 'py' || q == 'python') {
+      synonyms.addAll(['python']);
+    }
+    if (q.contains('vue')) {
+      synonyms.addAll(['vue', 'pinia']);
+    }
+    if (q.contains('react native') || q == 'rn') {
+      synonyms.addAll(['react native', 'rn']);
+    } else if (q == 'react') {
+      synonyms.addAll(['react', 'next.js']);
+    }
+
+    return synonyms.toList();
+  }
+
+  static int _calculateRelevanceScore(
+      Course c, List<String> searchTerms, String rawQuery) {
+    int score = 0;
+    final title = c.title.toLowerCase();
+    final techStacks = c.techStacks.map((t) => t.toLowerCase()).toList();
+    final desc = c.description.toLowerCase();
+
+    // 1. Direct query matching (highest priority)
+    if (title.startsWith(rawQuery)) {
+      score += 150;
+    } else if (title.contains(rawQuery)) {
+      score += 90;
+    }
+
+    if (techStacks.any((t) => t == rawQuery)) {
+      score += 120;
+    } else if (techStacks.any((t) => t.contains(rawQuery) || rawQuery.contains(t))) {
+      score += 70;
+    }
+
+    // 2. Synonym matching
+    for (final term in searchTerms) {
+      if (term == rawQuery) continue;
+      if (title.contains(term)) score += 50;
+      if (techStacks.any((t) => t.contains(term))) score += 40;
+    }
+
+    if (desc.contains(rawQuery)) score += 15;
+
+    return score;
+  }
+
   List<Course> get filteredCourses {
+    final rawQ = _searchQuery.trim().toLowerCase();
+    final searchTerms = _expandSearchSynonyms(rawQ);
+
+    if (rawQ.isNotEmpty) {
+      final matchingCourses = _allCourses.where((c) {
+        final title = c.title.toLowerCase();
+        final desc = c.description.toLowerCase();
+        final code = c.code.toLowerCase();
+        final uni = c.university.toLowerCase();
+        final author = c.author.toLowerCase();
+        final cat = c.category.toLowerCase();
+        final techList = c.techStacks.map((t) => t.toLowerCase()).toList();
+
+        final matchesAnyTerm = searchTerms.any((term) {
+          return title.contains(term) ||
+              desc.contains(term) ||
+              code.contains(term) ||
+              uni.contains(term) ||
+              author.contains(term) ||
+              cat.contains(term) ||
+              techList.any((t) => t.contains(term) || term.contains(t));
+        });
+
+        if (!matchesAnyTerm) return false;
+
+        if (_selectedLevel != 'All' && c.level != _selectedLevel) {
+          return false;
+        }
+
+        return true;
+      }).toList();
+
+      // Sort matching courses so the most relevant technology tracks appear first
+      matchingCourses.sort((a, b) {
+        final scoreA = _calculateRelevanceScore(a, searchTerms, rawQ);
+        final scoreB = _calculateRelevanceScore(b, searchTerms, rawQ);
+        return scoreB.compareTo(scoreA);
+      });
+
+      return matchingCourses;
+    }
+
+    // Standard category, tech stack, and level filters when search bar is empty
     return _allCourses.where((c) {
       final matchesCategory = _selectedCategory == 'All Technologies' ||
           c.category == _selectedCategory;
 
       final matchesTechStack = _selectedTechStack == null ||
           _selectedTechStack!.isEmpty ||
-          c.techStacks
-              .any((t) => t.toLowerCase() == _selectedTechStack!.toLowerCase());
+          c.techStacks.any((t) {
+            final tLower = t.toLowerCase();
+            final sLower = _selectedTechStack!.toLowerCase();
+            return tLower == sLower ||
+                tLower.contains(sLower) ||
+                sLower.contains(tLower);
+          }) ||
+          c.title.toLowerCase().contains(_selectedTechStack!.toLowerCase());
 
       final matchesLevel = _selectedLevel == 'All' || c.level == _selectedLevel;
 
-      final q = _searchQuery.toLowerCase().trim();
-      final matchesSearch = q.isEmpty ||
-          c.title.toLowerCase().contains(q) ||
-          c.university.toLowerCase().contains(q) ||
-          c.code.toLowerCase().contains(q) ||
-          c.author.toLowerCase().contains(q) ||
-          c.description.toLowerCase().contains(q) ||
-          c.techStacks.any((t) => t.toLowerCase().contains(q));
-
-      return matchesCategory &&
-          matchesTechStack &&
-          matchesLevel &&
-          matchesSearch;
+      return matchesCategory && matchesTechStack && matchesLevel;
     }).toList();
   }
 
@@ -178,6 +380,44 @@ class CourseProvider extends ChangeNotifier {
     _currentPage = 1;
     _hasMoreCourses = true;
     notifyListeners();
+
+    _searchDebounce?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.length >= 2) {
+      _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+        _triggerRemoteSearch(trimmed);
+      });
+    }
+  }
+
+  Future<void> _triggerRemoteSearch(String query) async {
+    if (_isSearchingRemote) return;
+    _isSearchingRemote = true;
+    notifyListeners();
+
+    try {
+      final remoteCourses =
+          await _service.fetchMoreCourses(page: 1, query: query);
+      if (remoteCourses.isNotEmpty) {
+        final bookmarks = _storage.getBookmarkedCourseIds();
+        bool addedAny = false;
+        for (final c in remoteCourses) {
+          if (!_allCourses.any((existing) => existing.id == c.id)) {
+            final isBookmarked = bookmarks.contains(c.id);
+            _allCourses.add(c.copyWith(isBookmarked: isBookmarked));
+            addedAny = true;
+          }
+        }
+        if (addedAny) {
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      // Graceful fallback to local cache
+    } finally {
+      _isSearchingRemote = false;
+      notifyListeners();
+    }
   }
 
   /// Infinite scroll loader: fetches next batch from open archive Swarm & appends seamlessly
@@ -322,5 +562,11 @@ class CourseProvider extends ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 }

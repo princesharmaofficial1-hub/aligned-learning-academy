@@ -93,6 +93,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: _SearchField(
                       controller: _searchController,
                       hasQuery: provider.searchQuery.isNotEmpty,
+                      isLoading: provider.isSearchingRemote,
                       onChanged: provider.setSearchQuery,
                       onClear: () => _resetFilters(provider),
                     ),
@@ -234,7 +235,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: AppPill(
-                              label: provider.selectedCategory,
+                              label: provider.searchQuery.trim().isNotEmpty
+                                  ? 'Search Results'
+                                  : provider.selectedCategory,
                               color: context.tokens.textMuted,
                               dense: true,
                             ),
@@ -365,10 +368,12 @@ class _SearchField extends StatelessWidget {
     required this.hasQuery,
     required this.onChanged,
     required this.onClear,
+    this.isLoading = false,
   });
 
   final TextEditingController controller;
   final bool hasQuery;
+  final bool isLoading;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
 
@@ -383,19 +388,28 @@ class _SearchField extends StatelessWidget {
         textInputAction: TextInputAction.search,
         style: context.text.bodyLarge,
         decoration: InputDecoration(
-          hintText: 'Search Python, FastAPI, React, Docker, Rust, Go…',
+          hintText: 'Search Azure, AWS, GCP, DevOps, Python, React…',
           prefixIcon: Icon(
             Icons.search_rounded,
             size: AppIcon.md,
             color: context.colors.primary,
           ),
-          suffixIcon: hasQuery
-              ? IconButton(
-                  icon: const Icon(Icons.close_rounded, size: AppIcon.sm),
-                  tooltip: 'Clear search',
-                  onPressed: onClear,
+          suffixIcon: isLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(AppSpace.md),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 )
-              : null,
+              : (hasQuery
+                  ? IconButton(
+                      icon: const Icon(Icons.close_rounded, size: AppIcon.sm),
+                      tooltip: 'Clear search',
+                      onPressed: onClear,
+                    )
+                  : null),
         ),
       ),
     );
