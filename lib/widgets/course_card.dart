@@ -624,23 +624,23 @@ class _CompactCourseCard extends StatelessWidget {
                     style: context.text.bodySmall,
                   ),
                   const SizedBox(height: AppSpace.sm),
-                  Row(
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       AppPill(
                         label: course.level,
                         color: accent,
                         dense: true,
                       ),
-                      const SizedBox(width: AppSpace.sm),
-                      Flexible(
-                        child: AppPill(
-                          label: course.lectures.isNotEmpty
-                              ? '${course.lectures.length} lectures'
-                              : 'Full syllabus',
-                          icon: Icons.play_circle_outline_rounded,
-                          color: t.textMuted,
-                          dense: true,
-                        ),
+                      AppPill(
+                        label: course.lectures.isNotEmpty
+                            ? '${course.lectures.length} lectures'
+                            : 'Full syllabus',
+                        icon: Icons.play_circle_outline_rounded,
+                        color: t.textMuted,
+                        dense: true,
                       ),
                     ],
                   ),

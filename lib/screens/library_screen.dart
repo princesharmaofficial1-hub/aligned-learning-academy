@@ -533,7 +533,10 @@ class _InProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               AppPill(
                 label: course.category.toUpperCase(),
@@ -541,7 +544,6 @@ class _InProgressCard extends StatelessWidget {
                 color: c.primary,
                 dense: true,
               ),
-              const SizedBox(width: AppSpace.sm),
               AppPill(
                 label: '${(course.overallProgress * 100).round()}%',
                 icon: Icons.donut_large_rounded,
@@ -585,14 +587,17 @@ class _InProgressCard extends StatelessWidget {
             style: context.text.bodySmall,
           ),
           const SizedBox(height: AppSpace.lg),
-          Row(
+          Wrap(
+            spacing: AppSpace.md,
+            runSpacing: AppSpace.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: <Widget>[
               AppPill(
                 label: course.level,
                 color: levelColor,
                 dense: true,
               ),
-              const Spacer(),
               AppButton(
                 label: 'Resume',
                 icon: Icons.play_arrow_rounded,

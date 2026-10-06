@@ -160,28 +160,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
                 // ---- Category tabs -------------------------------------------
                 SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 52,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpace.gutter,
-                        AppSpace.lg,
-                        AppSpace.gutter,
-                        0,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppSpace.md),
+                    child: SizedBox(
+                      height: 44,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.gutter,
+                        ),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: provider.categories.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: AppSpace.sm),
+                        itemBuilder: (context, index) {
+                          final cat = provider.categories[index];
+                          return _CategoryChip(
+                            label: cat,
+                            selected: cat == provider.selectedCategory,
+                            onTap: () => provider.setCategory(cat),
+                          );
+                        },
                       ),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: provider.categories.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(width: AppSpace.sm),
-                      itemBuilder: (context, index) {
-                        final cat = provider.categories[index];
-                        return _CategoryChip(
-                          label: cat,
-                          selected: cat == provider.selectedCategory,
-                          onTap: () => provider.setCategory(cat),
-                        );
-                      },
                     ),
                   ),
                 ),
@@ -641,7 +641,7 @@ class _TechChip extends StatelessWidget {
       label: 'Filter by $tech',
       child: Material(
         color: selected
-            ? color.withValues(alpha: AppAlpha.strong)
+            ? color.withValues(alpha: 0.16)
             : t.surfaceRaised,
         borderRadius: AppRadius.allPill,
         clipBehavior: Clip.antiAlias,
@@ -670,7 +670,7 @@ class _TechChip extends StatelessWidget {
                 Text(
                   tech,
                   style: context.text.labelMedium!.copyWith(
-                    color: selected ? t.textPrimary : t.textSecondary,
+                    color: selected ? color : t.textSecondary,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
@@ -703,7 +703,7 @@ class _CategoryChip extends StatelessWidget {
       button: true,
       selected: selected,
       child: Material(
-        color: selected ? c.primary : Colors.transparent,
+        color: selected ? c.primary : t.surfaceRaised,
         borderRadius: AppRadius.allPill,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -712,7 +712,7 @@ class _CategoryChip extends StatelessWidget {
             duration: AppMotion.fast,
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpace.lg,
-              vertical: AppSpace.sm + 2,
+              vertical: AppSpace.sm,
             ),
             alignment: Alignment.center,
             decoration: BoxDecoration(

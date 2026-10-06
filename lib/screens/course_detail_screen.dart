@@ -250,17 +250,17 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       ];
     }
 
-    final slivers = <Widget>[];
+    return <Widget>[
+      SliverList.builder(
+        itemCount: course.lectures.length,
+        itemBuilder: (context, i) {
+          final lecture = course.lectures[i];
+          final startsSection =
+              i == 0 || course.lectures[i - 1].section != lecture.section;
 
-    for (var i = 0; i < course.lectures.length; i++) {
-      final lecture = course.lectures[i];
-      final startsSection =
-          i == 0 || course.lectures[i - 1].section != lecture.section;
-
-      slivers.add(
-        SliverToBoxAdapter(
-          child: Column(
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               if (startsSection)
                 _SectionHeading(
@@ -274,16 +274,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                 onDownload: () => _toggleDownload(lecture),
               ),
             ],
-          ),
-        ),
-      );
-    }
-
-    slivers.add(
+          );
+        },
+      ),
       const SliverToBoxAdapter(child: SizedBox(height: AppSpace.x4l)),
-    );
-
-    return slivers;
+    ];
   }
 
   // ---------------------------------------------------------------------------
@@ -544,7 +539,7 @@ class _HeroBackdrop extends StatelessWidget {
           ),
         ),
 
-        // Bottom plate dissolves the artwork into the canvas.
+        // Bottom plate dissolves the artwork into the canvas with high contrast.
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -552,10 +547,11 @@ class _HeroBackdrop extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: <Color>[
                 Colors.transparent,
-                t.canvas.withValues(alpha: 0.85),
+                t.canvas.withValues(alpha: 0.45),
+                t.canvas.withValues(alpha: 0.92),
                 t.canvas,
               ],
-              stops: const <double>[0, 0.62, 1],
+              stops: const <double>[0, 0.42, 0.72, 1],
             ),
           ),
         ),
