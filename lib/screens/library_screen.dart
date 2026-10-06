@@ -1,15 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import '../models/course.dart';
 import '../models/lecture.dart';
 import '../providers/course_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
+import '../theme/tech_palette.dart';
+import '../widgets/app_components.dart';
 import 'course_detail_screen.dart';
 import 'video_player_screen.dart';
 
-class LibraryScreen extends StatelessWidget {
+/// "My Learning": active tracks, saved curricula and the offline cache.
+class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
+
+  @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  int _index = 0;
+
+  static List<_OfflineEntry> _downloadedLectures(CourseProvider provider) {
+    final entries = <_OfflineEntry>[];
+    for (final course in provider.allCourses) {
+      for (final lecture in course.lectures) {
+        if (lecture.isDownloaded) entries.add(_OfflineEntry(course, lecture));
+      }
+    }
+    return entries;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,719 +38,661 @@ class LibraryScreen extends StatelessWidget {
       builder: (context, provider, _) {
         final inProgress = provider.inProgressCourses;
         final bookmarked = provider.bookmarkedCourses;
-        final downloadedLectures = <Map<String, dynamic>>[];
+        final downloaded = _downloadedLectures(provider);
 
-        for (final c in provider.allCourses) {
-          for (final l in c.lectures) {
-            if (l.isDownloaded) {
-              downloadedLectures.add({'course': c, 'lecture': l});
-            }
-          }
-        }
-
-        return DefaultTabController(
-          length: 3,
-          child: Scaffold(
-            backgroundColor: AppTheme.background,
-            appBar: AppBar(
-              backgroundColor: AppTheme.background.withAlpha(240),
-              elevation: 0,
-              titleSpacing: 16,
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withAlpha(80),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+        return Scaffold(
+          backgroundColor: context.tokens.canvas,
+          appBar: _LibraryAppBar(
+            index: _index,
+            onChanged: (value) => setState(() => _index = value),
+          ),
+          body: Column(
+            children: <Widget>[
+              _MetricsBar(provider: provider),
+              Expanded(
+                child: IndexedStack(
+                  index: _index,
+                  children: <Widget>[
+                    _TrackList(
+                      courses: inProgress,
+                      emptyIcon: Icons.play_circle_outline_rounded,
+                      emptyTitle: 'No active tracks',
+                      emptyMessage:
+                          'Open a verified technology track from the catalogue '
+                          'and start watching — your progress will appear here.',
+                      builder: (course) => _InProgressCard(course: course),
                     ),
-                    child: const Icon(
-                      Icons.workspace_premium_rounded,
-                      size: 18,
-                      color: Colors.white,
+                    _TrackList(
+                      courses: bookmarked,
+                      emptyIcon: Icons.bookmark_border_rounded,
+                      emptyTitle: 'Nothing saved yet',
+                      emptyMessage:
+                          'Tap the bookmark icon on any course to build your '
+                          'own technical curriculum.',
+                      builder: (course) => _SavedCard(
+                        course: course,
+                        onRemove: () => provider.toggleBookmark(course.id),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'MY LEARNING WORKSPACE',
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                          color: AppTheme.primaryGlow,
-                        ),
-                      ),
-                      Text(
-                        'Executive Learning Hub',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(52),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.cardBorder, width: 1),
-                  ),
-                  child: TabBar(
-                    indicator: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withAlpha(90),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: AppTheme.textMuted,
-                    labelStyle: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.play_circle_outline_rounded, size: 15),
-                            const SizedBox(width: 6),
-                            Text('Active (${inProgress.length})'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.bookmark_outline_rounded, size: 15),
-                            const SizedBox(width: 6),
-                            Text('Saved (${bookmarked.length})'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.download_done_rounded, size: 15),
-                            const SizedBox(width: 6),
-                            Text('Offline (${downloadedLectures.length})'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    _OfflineList(entries: downloaded, provider: provider),
+                  ],
                 ),
               ),
-            ),
-            body: Column(
-              children: [
-                // Top Executive KPI Metrics Row
-                _buildMetricsBar(provider, inProgress.length, bookmarked.length),
-
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      // IN PROGRESS TAB
-                      inProgress.isEmpty
-                          ? _buildEmptyState(
-                              context,
-                              icon: Icons.play_circle_outline_rounded,
-                              title: 'No Active Tracks in Progress',
-                              subtitle:
-                                  'Explore verified technology tracks in the catalog and begin watching lectures to track real-time mastery here.',
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                              itemCount: inProgress.length,
-                              itemBuilder: (context, index) {
-                                return _buildInProgressCard(context, inProgress[index]);
-                              },
-                            ),
-
-                      // BOOKMARKED TAB
-                      bookmarked.isEmpty
-                          ? _buildEmptyState(
-                              context,
-                              icon: Icons.bookmark_border_rounded,
-                              title: 'No Saved Curriculum Tracks',
-                              subtitle:
-                                  'Tap the bookmark icon on any course in the Explore catalog to build your custom technical curriculum.',
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                              itemCount: bookmarked.length,
-                              itemBuilder: (context, index) {
-                                return _buildBookmarkedCard(
-                                    context, bookmarked[index], provider);
-                              },
-                            ),
-
-                      // OFFLINE CACHE TAB
-                      downloadedLectures.isEmpty
-                          ? _buildEmptyState(
-                              context,
-                              icon: Icons.cloud_done_outlined,
-                              title: 'No Offline Lectures Stored',
-                              subtitle:
-                                  'Download lectures and lab companions locally for uninterrupted study during executive travel or offline environments.',
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                              itemCount: downloadedLectures.length,
-                              itemBuilder: (context, index) {
-                                final course = downloadedLectures[index]['course'] as Course;
-                                final lecture = downloadedLectures[index]['lecture'] as Lecture;
-                                return _buildOfflineCard(
-                                    context, course, lecture, provider);
-                              },
-                            ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildMetricsBar(CourseProvider provider, int activeCount, int savedCount) {
-    int totalCompleted = 0;
-    for (final c in provider.allCourses) {
-      totalCompleted += c.completedLecturesCount;
+class _OfflineEntry {
+  const _OfflineEntry(this.course, this.lecture);
+  final Course course;
+  final Lecture lecture;
+}
+
+// =============================================================================
+// App bar + segmented tabs
+// =============================================================================
+
+class _LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _LibraryAppBar({required this.index, required this.onChanged});
+
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(124);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return AppBar(
+      backgroundColor: t.canvas,
+      toolbarHeight: 64,
+      titleSpacing: AppSpace.gutter,
+      title: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: Icons.workspace_premium_rounded,
+            color: c.primary,
+            size: 38,
+            iconSize: AppIcon.sm,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'MY LEARNING',
+                  style: context.text.labelSmall!.copyWith(
+                    color: c.primary,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  'Executive Hub',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleLarge,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                AppSpace.sm,
+                AppSpace.gutter,
+                AppSpace.md,
+              ),
+              child: AppSegmentControl(
+                labels: const <String>['Active', 'Saved', 'Offline'],
+                icons: const <IconData>[
+                  Icons.play_circle_outline_rounded,
+                  Icons.bookmark_outline_rounded,
+                  Icons.download_done_rounded,
+                ],
+                selectedIndex: index,
+                onChanged: onChanged,
+              ),
+            ),
+            Container(height: 1, color: t.hairline),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// KPI bar
+// =============================================================================
+
+class _MetricsBar extends StatelessWidget {
+  const _MetricsBar({required this.provider});
+
+  final CourseProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = context.tokens;
+
+    final completed = provider.allCourses.fold<int>(
+      0,
+      (sum, course) => sum + course.completedLecturesCount,
+    );
+
+    final lectures = provider.allCourses.fold<int>(
+      0,
+      (sum, course) => sum + course.lectures.length,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.lg,
+        AppSpace.gutter,
+        AppSpace.sm,
+      ),
+      child: AppSurface(
+        radius: AppRadius.lg,
+        glow: c.primary,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.md,
+          vertical: AppSpace.lg,
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: _MetricTile(
+                label: 'Active tracks',
+                value: '${provider.inProgressCourses.length}',
+                icon: Icons.bolt_rounded,
+                color: c.primary,
+              ),
+            ),
+            _Divider(color: t.hairline),
+            Expanded(
+              child: _MetricTile(
+                label: 'Lessons done',
+                value: '$completed',
+                icon: Icons.verified_rounded,
+                color: t.green,
+              ),
+            ),
+            _Divider(color: t.hairline),
+            Expanded(
+              child: _MetricTile(
+                label: 'Total lectures',
+                value: '$lectures',
+                icon: Icons.library_books_rounded,
+                color: t.accent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 36, color: color);
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        AppIconTile(
+          icon: icon,
+          color: color,
+          size: 34,
+          iconSize: AppIcon.sm,
+          radius: AppRadius.xs,
+        ),
+        const SizedBox(height: AppSpace.sm),
+        Text(value, style: context.text.metric),
+        const SizedBox(height: 2),
+        Text(
+          label.toUpperCase(),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: context.text.labelSmall!.copyWith(fontSize: 9.5),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// Tab bodies
+// =============================================================================
+
+class _TrackList extends StatelessWidget {
+  const _TrackList({
+    required this.courses,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyMessage,
+    required this.builder,
+  });
+
+  final List<Course> courses;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyMessage;
+  final Widget Function(Course course) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (courses.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        children: <Widget>[
+          AppEmptyState(
+            icon: emptyIcon,
+            title: emptyTitle,
+            message: emptyMessage,
+          ),
+          const SizedBox(height: AppSpace.dockClearance),
+        ],
+      );
     }
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: AppTheme.luxuryCardDecoration(
-        radius: 18,
-        hasGlow: true,
-        glowColor: AppTheme.primary,
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.md,
+        AppSpace.gutter,
+        AppSpace.dockClearance,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildMetricKPI(
-            'ACTIVE TRACKS',
-            '$activeCount',
-            Icons.bolt_rounded,
-            AppTheme.primaryGlow,
-            const Color(0xFF0284C7).withAlpha(40),
+      itemCount: courses.length,
+      itemBuilder: (context, index) => builder(courses[index]),
+    );
+  }
+}
+
+class _OfflineList extends StatelessWidget {
+  const _OfflineList({required this.entries, required this.provider});
+
+  final List<_OfflineEntry> entries;
+  final CourseProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        children: <Widget>[
+          AppEmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'No offline lectures',
+            message:
+                'Download lectures to study without a connection — handy for '
+                'flights and commutes.',
           ),
-          Container(
-            width: 1,
-            height: 38,
-            color: AppTheme.cardBorder.withAlpha(150),
+          const SizedBox(height: AppSpace.dockClearance),
+        ],
+      );
+    }
+
+    final t = context.tokens;
+
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.md,
+        AppSpace.gutter,
+        AppSpace.dockClearance,
+      ),
+      itemCount: entries.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpace.md),
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return AppSurface(
+          radius: AppRadius.md,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.md,
           ),
-          _buildMetricKPI(
-            'LESSONS DONE',
-            '$totalCompleted',
-            Icons.verified_rounded,
-            AppTheme.secondary,
-            AppTheme.secondary.withAlpha(35),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => VideoPlayerScreen(
+                course: entry.course,
+                initialLecture: entry.lecture,
+              ),
+            ),
           ),
-          Container(
-            width: 1,
-            height: 38,
-            color: AppTheme.cardBorder.withAlpha(150),
+          child: Row(
+            children: <Widget>[
+              AppIconTile(
+                icon: Icons.play_circle_fill_rounded,
+                color: t.green,
+                size: 44,
+                selected: true,
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      entry.lecture.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${entry.course.title} · ${entry.lecture.duration}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  provider.toggleLectureDownloaded(entry.lecture.id);
+                  showAppSnack(
+                    context,
+                    'Removed from offline downloads',
+                    icon: Icons.delete_outline_rounded,
+                  );
+                },
+                tooltip: 'Remove download',
+                iconSize: AppIcon.md,
+                icon: Icon(Icons.delete_outline_rounded, color: t.textMuted),
+              ),
+            ],
           ),
-          _buildMetricKPI(
-            'BOOKMARKED',
-            '$savedCount',
-            Icons.bookmark_rounded,
-            AppTheme.accent,
-            AppTheme.accent.withAlpha(35),
+        );
+      },
+    );
+  }
+}
+
+// =============================================================================
+// Cards
+// =============================================================================
+
+class _InProgressCard extends StatelessWidget {
+  const _InProgressCard({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    if (course.lectures.isEmpty) {
+      return AppSurface(
+        radius: AppRadius.md,
+        margin: const EdgeInsets.only(bottom: AppSpace.lg),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => CourseDetailScreen(course: course),
+          ),
+        ),
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(course.title, style: context.text.titleMedium),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(course.university, style: context.text.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            AppButton(
+              label: 'Open',
+              expand: false,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CourseDetailScreen(course: course),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final active = course.lectures.firstWhere(
+      (l) => l.watchProgress > 0 && l.watchProgress < 0.99,
+      orElse: () => course.lectures.first,
+    );
+
+    final levelColor = TechPalette.levelColor(course.level);
+
+    return AppSurface(
+      radius: AppRadius.lg,
+      margin: const EdgeInsets.only(bottom: AppSpace.lg),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CourseDetailScreen(course: course),
+        ),
+      ),
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              AppPill(
+                label: course.category.toUpperCase(),
+                icon: Icons.school_rounded,
+                color: c.primary,
+                dense: true,
+              ),
+              const SizedBox(width: AppSpace.sm),
+              AppPill(
+                label: '${(course.overallProgress * 100).round()}%',
+                icon: Icons.donut_large_rounded,
+                color: t.green,
+                dense: true,
+                selected: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          Text(
+            course.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.text.titleLarge,
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.play_circle_fill_rounded,
+                size: AppIcon.sm,
+                color: c.primary,
+              ),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  'Lecture ${active.number}: ${active.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.lg),
+          AppProgressBar(value: course.overallProgress, color: t.green),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            '${course.completedLecturesCount} of ${course.lectures.length} lessons finished',
+            style: context.text.bodySmall,
+          ),
+          const SizedBox(height: AppSpace.lg),
+          Row(
+            children: <Widget>[
+              AppPill(
+                label: course.level,
+                color: levelColor,
+                dense: true,
+              ),
+              const Spacer(),
+              AppButton(
+                label: 'Resume',
+                icon: Icons.play_arrow_rounded,
+                expand: false,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => VideoPlayerScreen(
+                      course: course,
+                      initialLecture: active,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMetricKPI(
-      String label, String value, IconData icon, Color iconColor, Color bgColor) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: iconColor.withAlpha(80), width: 1),
-          ),
-          child: Icon(icon, size: 18, color: iconColor),
+class _SavedCard extends StatelessWidget {
+  const _SavedCard({required this.course, required this.onRemove});
+
+  final Course course;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final color = TechPalette.colorFor(course.category);
+
+    return AppSurface(
+      radius: AppRadius.md,
+      margin: const EdgeInsets.only(bottom: AppSpace.md),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CourseDetailScreen(course: course),
         ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-                color: AppTheme.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInProgressCard(BuildContext context, Course course) {
-    if (course.lectures.isEmpty) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: AppTheme.luxuryCardDecoration(radius: 18),
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          title: Text(
-            course.title,
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          subtitle: Text(
-            course.university,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
-          trailing: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => CourseDetailScreen(course: course)),
-              );
-            },
-            child: const Text('Open Track'),
-          ),
-        ),
-      );
-    }
-
-    final activeLecture = course.lectures.firstWhere(
-      (l) => l.watchProgress > 0 && l.watchProgress < 0.99,
-      orElse: () => course.lectures.first,
-    );
-
-    final emoji = AppTheme.getTechEmoji(course.category);
-    final techColor = AppTheme.getTechColor(course.category);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: AppTheme.luxuryCardDecoration(
-        radius: 18,
-        hasGlow: true,
-        glowColor: techColor,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Category & Progress Pill
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: techColor.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: techColor.withAlpha(100), width: 0.8),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(emoji, style: const TextStyle(fontSize: 12)),
-                      const SizedBox(width: 5),
-                      Text(
-                        course.category.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                          color: techColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondary.withAlpha(25),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.secondary.withAlpha(90), width: 0.8),
-                  ),
-                  child: Text(
-                    '${(course.overallProgress * 100).toInt()}% COMPLETED',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 10,
-                      letterSpacing: 0.5,
-                      color: AppTheme.secondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Course Title
-            Text(
-              course.title,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                height: 1.25,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-
-            // Active Lecture Title
-            Row(
-              children: [
-                const Icon(Icons.play_circle_fill_rounded,
-                    size: 14, color: AppTheme.primaryGlow),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Lecture ${activeLecture.number}: ${activeLecture.title}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Linear Progress Bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: course.overallProgress,
-                backgroundColor: AppTheme.surfaceElevated,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondary),
-                minHeight: 6,
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Bottom Action Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: TechPalette.iconFor(course.category),
+            color: color,
+            size: 48,
+            iconSize: AppIcon.lg,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
                 Text(
-                  '${course.completedLecturesCount} of ${course.lectures.length} lessons finished',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  course.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleMedium,
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withAlpha(90),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                const SizedBox(height: AppSpace.xs),
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.verified_rounded,
+                      size: AppIcon.xs,
+                      color: t.green,
                     ),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: const Text(
-                      'Resume',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => VideoPlayerScreen(
-                            course: course,
-                            initialLecture: activeLecture,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBookmarkedCard(
-      BuildContext context, Course course, CourseProvider provider) {
-    final emoji = AppTheme.getTechEmoji(course.category);
-    final techColor = AppTheme.getTechColor(course.category);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: AppTheme.luxuryCardDecoration(radius: 18),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => CourseDetailScreen(course: course)),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Tech Stack Icon Badge
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: techColor.withAlpha(25),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: techColor.withAlpha(80), width: 1),
-                  ),
-                  child: Center(
-                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                  ),
-                ),
-                const SizedBox(width: 14),
-
-                // Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        course.title,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        course.university,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: context.text.bodySmall,
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            course.university,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded, size: 12, color: AppTheme.primaryGlow),
-                          const SizedBox(width: 6),
-                          Text(
-                            '• ${course.lectures.isNotEmpty ? '${course.lectures.length} lessons' : 'Full Syllabus'}',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-
-                // Action Bookmark Button
-                IconButton(
-                  icon: const Icon(Icons.bookmark_rounded, color: AppTheme.accent, size: 22),
-                  onPressed: () => provider.toggleBookmark(course.id),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  course.lectures.isNotEmpty
+                      ? '${course.lectures.length} lectures'
+                      : 'Full syllabus',
+                  style: context.text.labelSmall,
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOfflineCard(BuildContext context, Course course, Lecture lecture,
-      CourseProvider provider) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: AppTheme.luxuryCardDecoration(radius: 18),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppTheme.secondary.withAlpha(30),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondary.withAlpha(80), width: 1),
+          IconButton(
+            onPressed: onRemove,
+            tooltip: 'Remove from saved',
+            iconSize: AppIcon.md,
+            icon: Icon(Icons.bookmark_rounded, color: t.accent),
           ),
-          child: const Icon(Icons.play_circle_fill_rounded,
-              color: AppTheme.secondary, size: 22),
-        ),
-        title: Text(
-          lecture.title,
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: Colors.white,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Row(
-            children: [
-              Text(
-                course.title,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '• ${lecture.duration}',
-                style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-              ),
-            ],
-          ),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline_rounded,
-              size: 20, color: AppTheme.textMuted),
-          onPressed: () => provider.toggleLectureDownloaded(lecture.id),
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => VideoPlayerScreen(
-                course: course,
-                initialLecture: lecture,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.cardBorder, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withAlpha(30),
-                    blurRadius: 20,
-                  ),
-                ],
-              ),
-              child: Icon(icon, size: 36, color: AppTheme.primaryGlow),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textMuted,
-                height: 1.45,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -1,311 +1,285 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
+import '../models/lecture.dart' show LectureNote;
 import '../providers/course_provider.dart';
 import '../providers/notes_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/app_components.dart';
 import 'video_player_screen.dart';
 
+/// "Knowledge Vault": every timestamped note across the catalogue, newest first,
+/// each one able to jump straight back into the lecture it belongs to.
 class NotesScreen extends StatelessWidget {
   const NotesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<NotesProvider, CourseProvider>(
-      builder: (context, notesProv, courseProv, _) {
-        final notes = notesProv.notes;
+      builder: (context, notes, courses, _) {
+        final all = notes.notes;
 
         return Scaffold(
-          backgroundColor: AppTheme.background,
-          appBar: AppBar(
-            backgroundColor: AppTheme.background.withAlpha(240),
-            elevation: 0,
-            titleSpacing: 16,
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withAlpha(80),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+          backgroundColor: context.tokens.canvas,
+          appBar: _NotesAppBar(count: all.length),
+          body: all.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
                   ),
-                  child: const Icon(
-                    Icons.edit_note_rounded,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'KNOWLEDGE VAULT',
-                      style: GoogleFonts.outfit(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                        color: AppTheme.primaryGlow,
-                      ),
+                  children: const <Widget>[
+                    AppEmptyState(
+                      icon: Icons.edit_note_rounded,
+                      title: 'No notes yet',
+                      message:
+                          'While watching a lecture, open the Notes tab under '
+                          'the player to capture timestamped formulas, code '
+                          'snippets and takeaways.',
                     ),
-                    Text(
-                      'Engineering Notes',
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
+                    SizedBox(height: AppSpace.dockClearance),
                   ],
-                ),
-              ],
-            ),
-            actions: [
-              if (notes.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.cardBorder),
+                )
+              : ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    AppSpace.sm,
+                    AppSpace.gutter,
+                    AppSpace.dockClearance,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.code_rounded, size: 14, color: AppTheme.secondary),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${notes.length} Notes',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                  itemCount: all.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpace.md),
+                  itemBuilder: (context, index) => _NoteCard(
+                    note: all[index],
+                    courses: courses,
+                    notes: notes,
                   ),
-                ),
-            ],
-          ),
-          body: notes.isEmpty
-              ? _buildEmptyState(context)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-                  itemCount: notes.length,
-                  itemBuilder: (context, index) {
-                    final note = notes[index];
-                    return _buildNoteCard(context, note, notesProv, courseProv);
-                  },
                 ),
         );
       },
     );
   }
+}
 
-  Widget _buildNoteCard(
-    BuildContext context,
-    dynamic note,
-    NotesProvider notesProv,
-    CourseProvider courseProv,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: AppTheme.luxuryCardDecoration(radius: 18),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Row: Timestamp pill, Lecture Title, Delete & Copy
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondary.withAlpha(25),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.access_time_filled_rounded,
-                          size: 11, color: AppTheme.secondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        note.formattedTimestamp,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    note.lectureTitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+// =============================================================================
+// App bar
+// =============================================================================
+
+class _NotesAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _NotesAppBar({required this.count});
+
+  final int count;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return AppBar(
+      backgroundColor: t.canvas,
+      toolbarHeight: 60,
+      titleSpacing: AppSpace.gutter,
+      title: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: Icons.edit_note_rounded,
+            color: c.primary,
+            size: 38,
+            iconSize: AppIcon.sm,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'KNOWLEDGE VAULT',
+                  style: context.text.labelSmall!.copyWith(
+                    color: c.primary,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                IconButton(
-                  iconSize: 18,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.copy_rounded, color: AppTheme.textMuted),
-                  tooltip: 'Copy Note',
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: note.content));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Note copied to clipboard!'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 10),
-                IconButton(
-                  iconSize: 18,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.textMuted),
-                  tooltip: 'Delete Note',
-                  onPressed: () => notesProv.deleteNote(note.id),
+                const SizedBox(height: 1),
+                Text(
+                  'Engineering Notes',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleLarge,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-
-            // Note Content
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated.withAlpha(140),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.cardBorder.withAlpha(80)),
-              ),
-              child: Text(
-                note.content,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.white,
-                  height: 1.45,
-                ),
-              ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        if (count > 0)
+          Center(
+            child: AppPill(
+              label: '$count ${count == 1 ? 'NOTE' : 'NOTES'}',
+              icon: Icons.sticky_note_2_outlined,
+              color: t.green,
+              dense: true,
             ),
-            const SizedBox(height: 12),
+          ),
+        const SizedBox(width: AppSpace.gutter),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: t.hairline),
+      ),
+    );
+  }
+}
 
-            // Bottom Jump Action Button
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.surfaceElevated,
-                  foregroundColor: AppTheme.primaryGlow,
-                  side: BorderSide(color: AppTheme.primaryGlow.withAlpha(90), width: 1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                ),
-                icon: const Icon(Icons.play_circle_fill_rounded, size: 16),
-                label: const Text(
-                  'Jump to Lecture',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-                onPressed: () {
-                  try {
-                    final course = courseProv.allCourses
-                        .firstWhere((c) => c.id == note.courseId);
-                    final lecture = course.lectures
-                        .firstWhere((l) => l.id == note.lectureId);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => VideoPlayerScreen(
-                          course: course,
-                          initialLecture: lecture,
-                        ),
-                      ),
-                    );
-                  } catch (_) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Lecture not found in current catalog')),
-                    );
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
+// =============================================================================
+// Note card
+// =============================================================================
+
+class _NoteCard extends StatelessWidget {
+  const _NoteCard({
+    required this.note,
+    required this.courses,
+    required this.notes,
+  });
+
+  final LectureNote note;
+  final CourseProvider courses;
+  final NotesProvider notes;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: note.content));
+    if (!context.mounted) return;
+    showAppSnack(context, 'Note copied to clipboard', icon: Icons.copy_rounded);
+  }
+
+  void _openLecture(BuildContext context) {
+    final course = courses.allCourses.firstWhere(
+      (c) => c.id == note.courseId,
+      orElse: () =>
+          throw StateError('course ${note.courseId} not in catalogue'),
+    );
+    final lecture = course.lectures.firstWhere(
+      (l) => l.id == note.lectureId,
+      orElse: () => throw StateError('lecture ${note.lectureId} not in course'),
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VideoPlayerScreen(course: course, initialLecture: lecture),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.cardBorder, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withAlpha(30),
-                    blurRadius: 20,
-                  ),
-                ],
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return AppSurface(
+      radius: AppRadius.lg,
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // ---- Meta row -------------------------------------------------
+          Row(
+            children: <Widget>[
+              AppPill(
+                label: note.formattedTimestamp,
+                icon: Icons.access_time_filled_rounded,
+                color: t.green,
+                dense: true,
+                selected: true,
               ),
-              child: const Icon(
-                Icons.edit_note_rounded,
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  note.lectureTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.labelMedium,
+                ),
+              ),
+              AppIconButton(
+                icon: Icons.copy_rounded,
+                tooltip: 'Copy note',
                 size: 36,
-                color: AppTheme.primaryGlow,
+                iconSize: AppIcon.sm,
+                color: t.textMuted,
+                background: t.surfaceRaised,
+                onTap: () => _copy(context),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No Engineering Notes Yet',
-              style: GoogleFonts.outfit(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+              const SizedBox(width: AppSpace.xs),
+              AppIconButton(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'Delete note',
+                size: 36,
+                iconSize: AppIcon.sm,
+                color: t.danger,
+                background: t.surfaceRaised,
+                onTap: () {
+                  notes.deleteNote(note.id);
+                  showAppSnack(
+                    context,
+                    'Note deleted',
+                    icon: Icons.delete_outline_rounded,
+                    isError: true,
+                  );
+                },
               ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpace.md),
+
+          // ---- Body ------------------------------------------------------
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpace.md),
+            decoration: BoxDecoration(
+              color: t.surfaceRaised.withValues(alpha: AppAlpha.soft),
+              borderRadius: AppRadius.allSm,
+              border: Border.all(color: t.hairline),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'While watching any lecture, open the Notes tab beneath the video player to capture timestamped architectural formulas, code snippets, and key takeaways.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textMuted,
-                height: 1.45,
-              ),
+            child: Text(note.content, style: context.text.bodyLarge),
+          ),
+
+          const SizedBox(height: AppSpace.md),
+
+          // ---- Action ----------------------------------------------------
+          Align(
+            alignment: Alignment.centerRight,
+            child: AppButton(
+              label: 'Jump to lecture',
+              icon: Icons.play_circle_fill_rounded,
+              expand: false,
+              variant: AppButtonVariant.outlined,
+              color: c.primary,
+              onPressed: () {
+                try {
+                  _openLecture(context);
+                } catch (_) {
+                  showAppSnack(
+                    context,
+                    'This lecture is no longer in the catalogue',
+                    icon: Icons.link_off_rounded,
+                    isError: true,
+                  );
+                }
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

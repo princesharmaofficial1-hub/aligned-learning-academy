@@ -1,280 +1,160 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/settings_provider.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/app_components.dart';
 import '../widgets/sources_credits_dialog.dart';
 
-class SettingsScreen extends StatefulWidget {
+/// System preferences. Everything here is persisted, so the screen is a thin
+/// view over [SettingsProvider] rather than a second source of truth.
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool _wifiOnly = true;
-  bool _optimizeStreaming = true;
-  bool _autoPlayNext = true;
-
-  @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final t = context.tokens;
+
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        backgroundColor: AppTheme.background.withAlpha(240),
-        elevation: 0,
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withAlpha(80),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.tune_rounded,
-                size: 18,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'SYSTEM PREFERENCES',
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    color: AppTheme.primaryGlow,
-                  ),
-                ),
-                Text(
-                  'Enterprise Settings',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      backgroundColor: t.canvas,
+      appBar: const _SettingsAppBar(),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-        children: [
-          // Executive Organization Profile Banner
-          _buildOrganizationBanner(),
-          const SizedBox(height: 20),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter,
+          AppSpace.lg,
+          AppSpace.gutter,
+          AppSpace.dockClearance,
+        ),
+        children: <Widget>[
+          const _LicenseBanner(),
 
-          // Section 1: Streaming & Video Playback
-          _buildSectionHeader('STREAMING & PLAYBACK ENGINE', Icons.speed_rounded),
-          const SizedBox(height: 8),
-          Container(
-            decoration: AppTheme.luxuryCardDecoration(radius: 18),
-            child: Column(
-              children: [
-                _buildSwitchTile(
-                  icon: Icons.hd_rounded,
-                  iconColor: const Color(0xFF38BDF8),
-                  title: 'High-Definition Stream Optimization',
-                  subtitle: 'Optimizes video buffering pipeline and reduces playback latency.',
-                  value: _optimizeStreaming,
-                  onChanged: (val) => setState(() => _optimizeStreaming = val),
-                ),
-                const Divider(color: AppTheme.cardBorder, height: 1, indent: 56),
-                _buildSwitchTile(
-                  icon: Icons.wifi_rounded,
-                  iconColor: const Color(0xFF4ED44E),
-                  title: 'Download on Wi-Fi Only',
-                  subtitle: 'Conserves mobile cellular bandwidth for large multi-gigabyte files.',
-                  value: _wifiOnly,
-                  onChanged: (val) => setState(() => _wifiOnly = val),
-                ),
-                const Divider(color: AppTheme.cardBorder, height: 1, indent: 56),
-                _buildSwitchTile(
-                  icon: Icons.playlist_play_rounded,
-                  iconColor: const Color(0xFFA855F7),
-                  title: 'Auto-play Next Syllabus Lesson',
-                  subtitle: 'Sequentially transitions to subsequent video upon lecture completion.',
-                  value: _autoPlayNext,
-                  onChanged: (val) => setState(() => _autoPlayNext = val),
-                ),
-              ],
-            ),
+          // ---- Appearance ------------------------------------------------
+          const SectionHeader(
+            title: 'Appearance & Accessibility',
+            subtitle: 'How Aligned renders and reads',
           ),
-          const SizedBox(height: 24),
-
-          // Section 2: Storage & Cache Management
-          _buildSectionHeader('STORAGE & LOCAL CACHE', Icons.storage_rounded),
-          const SizedBox(height: 8),
-          Container(
-            decoration: AppTheme.luxuryCardDecoration(radius: 18),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withAlpha(25),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFF59E0B).withAlpha(80), width: 1),
-                    ),
-                    child: const Icon(
-                      Icons.cleaning_services_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Clear Video Stream Cache',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Purges temporary stream segments and buffer memory.',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.surfaceElevated,
-                      foregroundColor: AppTheme.primaryGlow,
-                      side: BorderSide(color: AppTheme.primaryGlow.withAlpha(90), width: 1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Video stream cache purged successfully!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    child: const Text('Purge', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+          _Group(
+            children: <Widget>[
+              _ThemePicker(
+                value: settings.themeMode,
+                onChanged: settings.setThemeMode,
               ),
-            ),
+              const _GroupDivider(),
+              _SwitchRow(
+                icon: Icons.animation_rounded,
+                color: t.violet,
+                title: 'Reduce motion',
+                subtitle:
+                    'Shortens transitions and disables non-essential animation.',
+                value: settings.reduceMotion,
+                onChanged: settings.setReduceMotion,
+              ),
+              const _GroupDivider(),
+              _TextScaleSlider(
+                value: settings.textScale,
+                onChanged: settings.setTextScale,
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
 
-          // Section 3: Platform Governance & Accreditation
-          _buildSectionHeader('GOVERNANCE & OPEN ACCREDITATION', Icons.verified_user_rounded),
-          const SizedBox(height: 8),
-          Container(
-            decoration: AppTheme.luxuryCardDecoration(radius: 18),
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withAlpha(30),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.primaryGlow.withAlpha(90), width: 1),
-                      ),
-                      child: const Icon(Icons.school_rounded, color: AppTheme.primaryGlow, size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Aligned Enterprise Academy',
-                            style: GoogleFonts.outfit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Open Educational Resources (OER) Initiative',
-                            style: TextStyle(fontSize: 11, color: AppTheme.secondary, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Aligned Learning Academy delivers continuous technical upskilling directly to software engineers and tech leaders. All instructional video streams originate exclusively from public domain and open-access university repositories (MIT OpenCourseWare, Harvard CS, OER Commons).',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.5),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.surfaceElevated,
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: AppTheme.cardBorder, width: 1.2),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: const Icon(Icons.verified_rounded, size: 18, color: AppTheme.secondary),
-                    label: const Text(
-                      'View Licensing & Open Content Sources',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    onPressed: () => SourcesCreditsDialog.show(context),
-                  ),
-                ),
-              ],
-            ),
+          // ---- Playback --------------------------------------------------
+          const SectionHeader(
+            title: 'Streaming & Playback',
+            subtitle: 'Delivery and sequencing defaults',
           ),
-          const SizedBox(height: 24),
+          _Group(
+            children: <Widget>[
+              _SwitchRow(
+                icon: Icons.hd_rounded,
+                color: t.info,
+                title: 'Optimise HD streaming',
+                subtitle:
+                    'Tunes the buffering pipeline to minimise playback latency.',
+                value: settings.optimizeStreaming,
+                onChanged: settings.setOptimizeStreaming,
+              ),
+              const _GroupDivider(),
+              _SwitchRow(
+                icon: Icons.wifi_rounded,
+                color: t.green,
+                title: 'Download on Wi-Fi only',
+                subtitle:
+                    'Protects cellular data when caching large video files.',
+                value: settings.wifiOnly,
+                onChanged: settings.setWifiOnly,
+              ),
+              const _GroupDivider(),
+              _SwitchRow(
+                icon: Icons.playlist_play_rounded,
+                color: t.accent,
+                title: 'Auto-play next lecture',
+                subtitle:
+                    'Continues to the next lecture as soon as one finishes.',
+                value: settings.autoPlayNext,
+                onChanged: settings.setAutoPlayNext,
+              ),
+            ],
+          ),
 
-          // Build & Enterprise Version Tag
+          // ---- Storage ---------------------------------------------------
+          const SectionHeader(
+            title: 'Storage & Local Cache',
+            subtitle: 'Temporary stream buffers',
+          ),
+          _Group(
+            children: <Widget>[
+              _ActionRow(
+                icon: Icons.cleaning_services_rounded,
+                color: t.accent,
+                title: 'Clear stream cache',
+                subtitle:
+                    'Purges temporary stream segments and frees buffer memory.',
+                actionLabel: 'Purge',
+                onPressed: () => showAppSnack(
+                  context,
+                  'Stream cache purged',
+                  icon: Icons.check_circle_rounded,
+                ),
+              ),
+            ],
+          ),
+
+          // ---- Governance -----------------------------------------------
+          const SectionHeader(
+            title: 'Governance & Accreditation',
+            subtitle: 'Open educational resources',
+          ),
+          const _GovernanceCard(),
+
+          // ---- Build stamp -----------------------------------------------
+          const SizedBox(height: AppSpace.xl),
           Center(
             child: Column(
-              children: [
+              children: <Widget>[
                 Text(
-                  'Aligned Learning Academy • Enterprise Edition v1.0.0',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textMuted,
-                  ),
+                  'Aligned Learning Academy · Enterprise v1.0.0',
+                  style: context.text.labelMedium,
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Hardware-Accelerated CDN Stream Pipeline Active',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF4ED44E),
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: AppSpace.xs),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: t.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(
+                      'Accelerated CDN pipeline active',
+                      style: context.text.labelSmall!.copyWith(color: t.green),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -283,98 +163,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildOrganizationBanner() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F2642),
-            Color(0xFF0E1A2D),
-            Color(0xFF080E18),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.primaryGlow.withAlpha(70),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withAlpha(35),
-            blurRadius: 18,
-            offset: const Offset(0, 4),
+// =============================================================================
+// App bar
+// =============================================================================
+
+class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _SettingsAppBar();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return AppBar(
+      backgroundColor: t.canvas,
+      toolbarHeight: 60,
+      titleSpacing: AppSpace.gutter,
+      title: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: Icons.tune_rounded,
+            color: c.primary,
+            size: 38,
+            iconSize: AppIcon.sm,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'SYSTEM PREFERENCES',
+                  style: context.text.labelSmall!.copyWith(
+                    color: c.primary,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  'Enterprise Settings',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleLarge,
+                ),
+              ],
+            ),
           ),
         ],
       ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: t.hairline),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Banner
+// =============================================================================
+
+class _LicenseBanner extends StatelessWidget {
+  const _LicenseBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return AppSurface(
+      radius: AppRadius.xl,
+      glow: c.primary,
+      border: BorderSide(color: c.primary.withValues(alpha: 0.30)),
+      gradient: LinearGradient(
+        colors: <Color>[
+          Color.alphaBlend(c.primary.withValues(alpha: 0.16), t.surface),
+          t.surface,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      padding: const EdgeInsets.all(AppSpace.xl),
       child: Row(
-        children: [
+        children: <Widget>[
           Container(
-            width: 50,
-            height: 50,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.cardBorder, width: 1),
+              color: t.surfaceRaised,
+              borderRadius: AppRadius.allMd,
+              border: Border.all(color: t.hairline),
             ),
             child: Center(
               child: Image.asset(
                 'assets/images/aligned_icon.png',
                 height: 32,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.business_rounded,
-                  color: AppTheme.secondary,
-                  size: 26,
-                ),
+                excludeFromSemantics: true,
+                errorBuilder: (_, __, ___) =>
+                    Icon(Icons.business_rounded, color: t.green, size: 26),
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: AppSpace.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.secondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'ENTERPRISE ACTIVE LICENSE',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1,
-                        color: AppTheme.secondary,
-                      ),
-                    ),
-                  ],
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                AppPill(
+                  label: 'ENTERPRISE LICENSE',
+                  icon: Icons.circle,
+                  color: t.green,
+                  dense: true,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Aligned Automation',
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
+                const SizedBox(height: AppSpace.sm),
+                Text('Aligned Automation', style: context.text.titleLarge),
                 const SizedBox(height: 2),
-                const Text(
-                  'Internal Technical Training & Upskilling Platform',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textSecondary,
-                  ),
+                Text(
+                  'Internal technical training & upskilling platform',
+                  style: context.text.bodySmall,
                 ),
               ],
             ),
@@ -383,79 +298,386 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: AppTheme.primaryGlow),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.0,
-            color: AppTheme.primaryGlow,
-          ),
-        ),
-      ],
+// =============================================================================
+// Groups
+// =============================================================================
+
+/// A titled stack of related rows. One component, so every settings group has
+/// identical padding, radius and divider rhythm.
+class _Group extends StatelessWidget {
+  const _Group({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSurface(
+      radius: AppRadius.lg,
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+      child: Column(children: children),
     );
   }
+}
 
-  Widget _buildSwitchTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
+class _GroupDivider extends StatelessWidget {
+  const _GroupDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: AppSpace.lg + 44 + AppSpace.md,
+      endIndent: AppSpace.lg,
+      color: context.tokens.hairline,
+    );
+  }
+}
+
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      value: value,
+      onChanged: onChanged,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.xs,
+      ),
+      secondary: AppIconTile(icon: icon, color: color, size: 44),
+      title: Text(title, style: context.text.titleMedium),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(subtitle, style: context.text.bodySmall),
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.md,
+      ),
       child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: iconColor.withAlpha(80), width: 1),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(width: 14),
+        children: <Widget>[
+          AppIconTile(icon: icon, color: color, size: 44),
+          const SizedBox(width: AppSpace.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(title, style: context.text.titleMedium),
+                const SizedBox(height: 2),
+                Text(subtitle, style: context.text.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          AppButton(
+            label: actionLabel,
+            expand: false,
+            variant: AppButtonVariant.outlined,
+            onPressed: onPressed,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Theme picker
+// =============================================================================
+
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker({required this.value, required this.onChanged});
+
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  static const List<(ThemeMode, String, IconData)> _options =
+      <(ThemeMode, String, IconData)>[
+    (ThemeMode.dark, 'Dark', Icons.dark_mode_rounded),
+    (ThemeMode.light, 'Light', Icons.light_mode_rounded),
+    (ThemeMode.system, 'System', Icons.brightness_auto_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.md,
+        AppSpace.lg,
+        AppSpace.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Colour scheme', style: context.text.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            'Dark is the primary experience; light is tuned for daytime reading.',
+            style: context.text.bodySmall,
+          ),
+          const SizedBox(height: AppSpace.md),
+          Row(
+            children: <Widget>[
+              for (var i = 0; i < _options.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: i == _options.length - 1 ? 0 : AppSpace.sm,
+                    ),
+                    child: _ThemeOption(
+                      label: _options[i].$2,
+                      icon: _options[i].$3,
+                      selected: _options[i].$1 == value,
+                      onTap: () => onChanged(_options[i].$1),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = context.tokens;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label theme',
+      child: Material(
+        color: selected
+            ? c.primary.withValues(alpha: AppAlpha.soft)
+            : t.surfaceRaised,
+        borderRadius: AppRadius.allMd,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            curve: AppMotion.emphasized,
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.allMd,
+              border: Border.all(
+                color:
+                    selected ? c.primary.withValues(alpha: 0.55) : t.hairline,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  icon,
+                  size: AppIcon.md,
+                  color: selected ? c.primary : t.textMuted,
+                ),
+                const SizedBox(height: AppSpace.xs),
                 Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textMuted,
-                    height: 1.3,
+                  label,
+                  style: context.text.labelMedium!.copyWith(
+                    color: selected ? c.primary : t.textSecondary,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            activeColor: AppTheme.secondary,
-            activeTrackColor: AppTheme.secondary.withAlpha(80),
-            inactiveThumbColor: AppTheme.textMuted,
-            inactiveTrackColor: AppTheme.surfaceElevated,
-            onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Text scale
+// =============================================================================
+
+class _TextScaleSlider extends StatelessWidget {
+  const _TextScaleSlider({required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.md,
+        AppSpace.lg,
+        AppSpace.md,
+      ),
+      child: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: Icons.format_size_rounded,
+            color: context.colors.primary,
+            size: 44,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text('Text size', style: context.text.titleMedium),
+                    ),
+                    Text(
+                      '${(value * 100).round()}%',
+                      style: context.text.labelMedium!.copyWith(
+                        color: context.colors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: value,
+                  min: 0.85,
+                  max: 1.3,
+                  divisions: 9,
+                  label: '${(value * 100).round()}%',
+                  onChanged: onChanged,
+                ),
+                Text(
+                  'Applies across every screen immediately.',
+                  style: context.text.bodySmall!.copyWith(color: t.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Governance
+// =============================================================================
+
+class _GovernanceCard extends StatelessWidget {
+  const _GovernanceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return AppSurface(
+      radius: AppRadius.lg,
+      padding: const EdgeInsets.all(AppSpace.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              AppIconTile(
+                icon: Icons.school_rounded,
+                color: t.green,
+                size: 44,
+                selected: true,
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'Aligned Enterprise Academy',
+                      style: context.text.titleLarge,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Open Educational Resources initiative',
+                      style: context.text.bodySmall!.copyWith(color: t.green),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.lg),
+          Text(
+            'Aligned Learning Academy delivers continuous technical upskilling '
+            'to software engineers and tech leads. All instructional streams '
+            'originate from public-domain and open-access university '
+            'repositories — MIT OpenCourseWare, Harvard CS and OER Commons.',
+            style: context.text.bodyMedium,
+          ),
+          const SizedBox(height: AppSpace.lg),
+          AppButton(
+            label: 'Licensing & open content sources',
+            icon: Icons.verified_rounded,
+            color: t.green,
+            variant: AppButtonVariant.outlined,
+            onPressed: () => SourcesCreditsDialog.show(context),
           ),
         ],
       ),

@@ -62,12 +62,13 @@ class CourseProvider extends ChangeNotifier {
 
   List<Course> get filteredCourses {
     return _allCourses.where((c) {
-      final matchesCategory =
-          _selectedCategory == 'All Technologies' || c.category == _selectedCategory;
+      final matchesCategory = _selectedCategory == 'All Technologies' ||
+          c.category == _selectedCategory;
 
       final matchesTechStack = _selectedTechStack == null ||
           _selectedTechStack!.isEmpty ||
-          c.techStacks.any((t) => t.toLowerCase() == _selectedTechStack!.toLowerCase());
+          c.techStacks
+              .any((t) => t.toLowerCase() == _selectedTechStack!.toLowerCase());
 
       final matchesLevel = _selectedLevel == 'All' || c.level == _selectedLevel;
 
@@ -80,7 +81,10 @@ class CourseProvider extends ChangeNotifier {
           c.description.toLowerCase().contains(q) ||
           c.techStacks.any((t) => t.toLowerCase().contains(q));
 
-      return matchesCategory && matchesTechStack && matchesLevel && matchesSearch;
+      return matchesCategory &&
+          matchesTechStack &&
+          matchesLevel &&
+          matchesSearch;
     }).toList();
   }
 
@@ -89,7 +93,9 @@ class CourseProvider extends ChangeNotifier {
   }
 
   List<Course> get inProgressCourses {
-    return _allCourses.where((c) => c.overallProgress > 0 && c.overallProgress < 0.99).toList();
+    return _allCourses
+        .where((c) => c.overallProgress > 0 && c.overallProgress < 0.99)
+        .toList();
   }
 
   Course? get lastActiveCourse {
@@ -112,7 +118,8 @@ class CourseProvider extends ChangeNotifier {
         final isBookmarked = bookmarks.contains(course.id);
         final hydratedLectures = course.lectures.map((l) {
           final progress = _storage.getLectureProgress(l.id);
-          final isDownloaded = _storage.getDownloadedLectureIds().contains(l.id);
+          final isDownloaded =
+              _storage.getDownloadedLectureIds().contains(l.id);
           return l.copyWith(
             watchProgress: progress,
             isCompleted: progress >= 0.9,
@@ -259,12 +266,14 @@ class CourseProvider extends ChangeNotifier {
     final index = _allCourses.indexWhere((c) => c.id == courseId);
     if (index != -1) {
       final current = _allCourses[index];
-      _allCourses[index] = current.copyWith(isBookmarked: !current.isBookmarked);
+      _allCourses[index] =
+          current.copyWith(isBookmarked: !current.isBookmarked);
       notifyListeners();
     }
   }
 
-  Future<void> updateLectureProgress(String courseId, String lectureId, double progress) async {
+  Future<void> updateLectureProgress(
+      String courseId, String lectureId, double progress) async {
     await _storage.saveLectureProgress(lectureId, progress);
 
     final courseIndex = _allCourses.indexWhere((c) => c.id == courseId);
@@ -296,7 +305,8 @@ class CourseProvider extends ChangeNotifier {
       final course = _allCourses[i];
       final lIndex = course.lectures.indexWhere((l) => l.id == lectureId);
       if (lIndex != -1) {
-        final updated = course.lectures[lIndex].copyWith(isDownloaded: isDownloaded);
+        final updated =
+            course.lectures[lIndex].copyWith(isDownloaded: isDownloaded);
         final newLectures = List<Lecture>.from(course.lectures);
         newLectures[lIndex] = updated;
         _allCourses[i] = course.copyWith(lectures: newLectures);

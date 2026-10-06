@@ -14,6 +14,8 @@ class StorageService {
     _prefs = await SharedPreferences.getInstance();
   }
 
+  SharedPreferences get prefs => _prefs;
+
   // --- Bookmarks ---
   Set<String> getBookmarkedCourseIds() {
     final list = _prefs.getStringList(_keyBookmarks) ?? [];
@@ -36,7 +38,8 @@ class StorageService {
   }
 
   Future<void> saveLectureProgress(String lectureId, double progress) async {
-    await _prefs.setDouble('$_keyProgressPrefix$lectureId', progress.clamp(0.0, 1.0));
+    await _prefs.setDouble(
+        '$_keyProgressPrefix$lectureId', progress.clamp(0.0, 1.0));
   }
 
   // --- Downloads ---

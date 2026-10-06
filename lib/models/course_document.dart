@@ -16,20 +16,20 @@ class CourseDocument {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'type': type,
-    'fileUrl': fileUrl,
-    'sizeFormatted': sizeFormatted,
-    'description': description,
-  };
+        'id': id,
+        'title': title,
+        'type': type,
+        'fileUrl': fileUrl,
+        'sizeFormatted': sizeFormatted,
+        'description': description,
+      };
 
   factory CourseDocument.fromJson(Map<String, dynamic> json) => CourseDocument(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    type: json['type'] as String? ?? 'pdf',
-    fileUrl: json['fileUrl'] as String? ?? '',
-    sizeFormatted: json['sizeFormatted'] as String? ?? '1.2 MB',
-    description: json['description'] as String? ?? '',
-  );
+        id: json['id'] as String,
+        title: json['title'] as String,
+        type: json['type'] as String? ?? 'pdf',
+        fileUrl: json['fileUrl'] as String? ?? '',
+        sizeFormatted: json['sizeFormatted'] as String? ?? '1.2 MB',
+        description: json['description'] as String? ?? '',
+      );
 }

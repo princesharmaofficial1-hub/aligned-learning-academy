@@ -1,208 +1,282 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
+import '../theme/design_tokens.dart';
+import 'app_components.dart';
+
+/// Attribution sheet: where every curriculum comes from and under which
+/// licence. Presented as a bottom sheet because it is reference material the
+/// user reads but never edits.
 class SourcesCreditsDialog extends StatelessWidget {
   const SourcesCreditsDialog({super.key});
 
   static void show(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const SourcesCreditsDialog(),
+      showDragHandle: false,
+      builder: (_) => const SourcesCreditsDialog(),
     );
   }
 
+  static const List<_Source> _sources = <_Source>[
+    _Source(
+      title: 'MIT OpenCourseWare',
+      license: 'CC BY-NC-SA 4.0',
+      description:
+          'Foundational engineering, distributed systems, algorithms and '
+          'cybersecurity courseware, published free for public education by '
+          'the Massachusetts Institute of Technology.',
+      icon: Icons.school_outlined,
+      colorKey: _SourceColor.brand,
+    ),
+    _Source(
+      title: 'Harvard CS & open initiatives',
+      license: 'Open Educational Resources',
+      description:
+          'Modern computer science, Python, backend frameworks and web '
+          'architecture material distributed openly for developer upskilling.',
+      icon: Icons.auto_stories_outlined,
+      colorKey: _SourceColor.green,
+    ),
+    _Source(
+      title: 'Internet Archive OER library',
+      license: 'Public domain / CC',
+      description:
+          'Preserved technical lectures, documentation, conference keynotes '
+          'and enterprise architecture workshops.',
+      icon: Icons.account_balance_outlined,
+      colorKey: _SourceColor.info,
+    ),
+    _Source(
+      title: 'Open source foundations & labs',
+      license: 'MIT / Apache 2.0 / CC-BY',
+      description:
+          'Technical documentation, code repositories and capstone labs from '
+          'the Python Software Foundation, CNCF and the Linux Foundation.',
+      icon: Icons.code_rounded,
+      colorKey: _SourceColor.violet,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final t = context.tokens;
+
+    return ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.86,
       ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(
-          top: BorderSide(color: AppTheme.cardBorder, width: 1.5),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: t.surfaceRaised,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.xl),
+          ),
+          border: Border.all(color: t.hairline),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const _SheetGrabber(),
+              _SheetHeader(onClose: () => Navigator.pop(context)),
+              Divider(height: 1, color: t.hairline),
+              Flexible(
+                child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    AppSpace.lg,
+                    AppSpace.gutter,
+                    AppSpace.xl,
+                  ),
+                  children: <Widget>[
+                    const _AssuranceCard(),
+                    const SectionHeader(
+                      title: 'Primary Open Courseware Sources',
+                      padding: EdgeInsets.fromLTRB(
+                          0, AppSpace.section, 0, AppSpace.md),
+                    ),
+                    for (final source in _sources)
+                      _SourceCard(
+                          source: source, color: _resolve(context, source)),
+                    const SizedBox(height: AppSpace.md),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpace.md),
+                      decoration: BoxDecoration(
+                        color: t.surface,
+                        borderRadius: AppRadius.allMd,
+                        border: Border.all(color: t.hairline),
+                      ),
+                      child: Text(
+                        'Attribution notice: all trademarks, course marks and '
+                        'university emblems belong to their respective '
+                        'copyright holders. Aligned acts as an educational '
+                        'aggregator operating under open-licensing and fair-use '
+                        'directives.',
+                        style: context.text.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.lg),
+                    AppButton(
+                      label: 'Close',
+                      variant: AppButtonVariant.outlined,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      child: Column(
-        children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.cardBorder,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+    );
+  }
 
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withAlpha(40),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.primary.withAlpha(100)),
-                  ),
-                  child: const Icon(Icons.verified_user_outlined,
-                      color: AppTheme.primaryGlow, size: 22),
+  static Color _resolve(BuildContext context, _Source source) {
+    final t = context.tokens;
+    return switch (source.colorKey) {
+      _SourceColor.brand => context.colors.primary,
+      _SourceColor.green => t.green,
+      _SourceColor.info => t.info,
+      _SourceColor.violet => t.violet,
+    };
+  }
+}
+
+enum _SourceColor { brand, green, info, violet }
+
+@immutable
+class _Source {
+  const _Source({
+    required this.title,
+    required this.license,
+    required this.description,
+    required this.icon,
+    required this.colorKey,
+  });
+
+  final String title;
+  final String license;
+  final String description;
+  final IconData icon;
+  final _SourceColor colorKey;
+}
+
+class _SheetGrabber extends StatelessWidget {
+  const _SheetGrabber();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.md, bottom: AppSpace.sm),
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: context.tokens.hairlineStrong,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.sm,
+        AppSpace.sm,
+        AppSpace.lg,
+      ),
+      child: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: Icons.verified_user_rounded,
+            color: c.primary,
+            size: 44,
+            iconSize: AppIcon.md,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Content Sources & Licensing',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleLarge,
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Content Sources & Licensing Credits',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        'Open Educational Resources (OER) Attribution',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.textMuted),
-                  onPressed: () => Navigator.pop(context),
+                const SizedBox(height: 2),
+                Text(
+                  'Open educational resource attribution',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodySmall,
                 ),
               ],
             ),
           ),
+          AppIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Close',
+            color: c.onSurface,
+            onTap: onClose,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-          const Divider(color: AppTheme.cardBorder, height: 1),
+class _AssuranceCard extends StatelessWidget {
+  const _AssuranceCard();
 
-          // Scrollable Content
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return AppSurface.inset(
+      radius: AppRadius.lg,
+      color: t.green.withValues(alpha: AppAlpha.wash),
+      border: BorderSide(color: t.green.withValues(alpha: AppAlpha.medium)),
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.verified_rounded, size: AppIcon.md, color: t.green),
+          const SizedBox(width: AppSpace.md),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                // Enterprise Legal Assurance Card
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandGreen.withAlpha(25),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppTheme.brandGreen.withAlpha(90),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.check_circle_outline,
-                          color: AppTheme.brandGreen, size: 22),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '100% Legal & Enterprise Safe',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'All curricula, technical slide decks, code repositories, and video streams provided in this platform originate exclusively from verified open-access educational initiatives and permissive public repositories. Fully authorized for organizational engineering training.',
-                              style: TextStyle(
-                                color: Colors.white.withAlpha(200),
-                                fontSize: 12,
-                                height: 1.45,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Verified open content only',
+                  style: context.text.titleMedium!.copyWith(color: t.green),
                 ),
-
-                const SizedBox(height: 18),
-
-                const Text(
-                  'Primary Open Courseware Sources',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: -0.2,
-                  ),
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  'Every curriculum, slide deck, code repository and video '
+                  'stream in this app originates from verified open-access '
+                  'educational initiatives and permissively licensed public '
+                  'repositories — authorised for organisational engineering '
+                  'training.',
+                  style: context.text.bodyMedium,
                 ),
-                const SizedBox(height: 12),
-
-                _buildSourceTile(
-                  title: 'MIT OpenCourseWare (OCW)',
-                  license: 'Creative Commons BY-NC-SA 4.0',
-                  description:
-                      'World-class foundational engineering, distributed systems, algorithms, and cybersecurity courseware provided freely for public education by the Massachusetts Institute of Technology.',
-                  icon: Icons.school_outlined,
-                  color: AppTheme.primary,
-                ),
-
-                _buildSourceTile(
-                  title: 'Harvard CS & Open Educational Initiatives',
-                  license: 'Open Educational License (OER)',
-                  description:
-                      'Comprehensive modern computer science, Python, backend frameworks, and web architectures distributed openly for developer skill acquisition.',
-                  icon: Icons.auto_stories_outlined,
-                  color: AppTheme.techFastApi,
-                ),
-
-                _buildSourceTile(
-                  title: 'Internet Archive OER Public Curricula',
-                  license: 'Public Domain / Creative Commons',
-                  description:
-                      'Digital library preservation of technical lectures, documentation, conference keynotes, and enterprise architecture workshops.',
-                  icon: Icons.account_balance_outlined,
-                  color: AppTheme.techDocker,
-                ),
-
-                _buildSourceTile(
-                  title: 'Open Source Software Foundations & Labs',
-                  license: 'MIT / Apache 2.0 / CC-BY',
-                  description:
-                      'Practical technical documentation, code repositories, and capstone labs from community foundations (Python Software Foundation, CNCF, Linux Foundation).',
-                  icon: Icons.code,
-                  color: AppTheme.secondary,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Compliance Note
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.cardBorder),
-                  ),
-                  child: const Text(
-                    'Attribution Notice: All trademarks, course marks, and university emblems belong to their respective copyright holders. This application operates as an educational aggregator conforming to fair use and open licensing directives.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textMuted,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -210,70 +284,49 @@ class SourcesCreditsDialog extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildSourceTile({
-    required String title,
-    required String license,
-    required String description,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.cardBorder),
-      ),
+class _SourceCard extends StatelessWidget {
+  const _SourceCard({required this.source, required this.color});
+
+  final _Source source;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSurface(
+      radius: AppRadius.md,
+      margin: const EdgeInsets.only(bottom: AppSpace.md),
+      padding: const EdgeInsets.all(AppSpace.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withAlpha(40),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 18),
-              ),
-              const SizedBox(width: 10),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AppIconTile(icon: source.icon, color: color, size: 40),
+              const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
                     Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      source.title,
+                      style: context.text.titleMedium,
                     ),
+                    const SizedBox(height: AppSpace.xs),
                     Text(
-                      license,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      source.license,
+                      style: context.text.labelSmall!.copyWith(color: color),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-              height: 1.4,
-            ),
-          ),
+          const SizedBox(height: AppSpace.md),
+          Text(source.description, style: context.text.bodySmall),
         ],
       ),
     );

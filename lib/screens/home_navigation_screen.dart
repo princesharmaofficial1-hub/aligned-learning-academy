@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter/services.dart';
+
+import '../theme/design_tokens.dart';
+import '../widgets/app_components.dart';
 import 'explore_screen.dart';
 import 'library_screen.dart';
 import 'notes_screen.dart';
 import 'settings_screen.dart';
 
+/// Root shell: four primary destinations behind a frosted floating dock.
+///
+/// Each destination keeps its own scroll position via [IndexedStack], and
+/// route changes are announced to screen readers through the dock's semantics.
 class HomeNavigationScreen extends StatefulWidget {
   const HomeNavigationScreen({super.key});
 
@@ -15,107 +22,202 @@ class HomeNavigationScreen extends StatefulWidget {
 class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    ExploreScreen(),
-    LibraryScreen(),
-    NotesScreen(),
-    SettingsScreen(),
+  static const List<_NavDestination> _destinations = <_NavDestination>[
+    _NavDestination(
+      icon: Icons.explore_outlined,
+      activeIcon: Icons.explore_rounded,
+      label: 'Explore',
+    ),
+    _NavDestination(
+      icon: Icons.local_library_outlined,
+      activeIcon: Icons.local_library_rounded,
+      label: 'Learning',
+    ),
+    _NavDestination(
+      icon: Icons.sticky_note_2_outlined,
+      activeIcon: Icons.sticky_note_2_rounded,
+      label: 'Notes',
+    ),
+    _NavDestination(
+      icon: Icons.tune_outlined,
+      activeIcon: Icons.tune_rounded,
+      label: 'Settings',
+    ),
   ];
+
+  void _select(int index) {
+    if (_currentIndex == index) return;
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            context.isDarkMode ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            context.isDarkMode ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness:
+            context.isDarkMode ? Brightness.light : Brightness.dark,
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          height: 66,
-          decoration: BoxDecoration(
-            color: const Color(0xEE0E1626),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withAlpha(25),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(160),
-                blurRadius: 24,
-                spreadRadius: 2,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: AppTheme.primary.withAlpha(25),
-                blurRadius: 18,
-                offset: const Offset(0, -2),
-              ),
-            ],
+      child: Scaffold(
+        extendBody: true,
+        resizeToAvoidBottomInset: false,
+        body: IndexedStack(
+          index: _currentIndex,
+          children: const <Widget>[
+            ExploreScreen(),
+            LibraryScreen(),
+            NotesScreen(),
+            SettingsScreen(),
+          ],
+        ),
+        bottomNavigationBar: _NavDock(
+          index: _currentIndex,
+          destinations: _destinations,
+          onSelect: _select,
+        ),
+      ),
+    );
+  }
+}
+
+@immutable
+class _NavDestination {
+  const _NavDestination({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+}
+
+class _NavDock extends StatelessWidget {
+  const _NavDock({
+    required this.index,
+    required this.destinations,
+    required this.onSelect,
+  });
+
+  final int index;
+  final List<_NavDestination> destinations;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        0,
+        AppSpace.gutter,
+        AppSpace.md,
+      ),
+      child: Semantics(
+        container: true,
+        label: 'Primary navigation',
+        child: GlassSurface(
+          radius: AppRadius.xl,
+          blur: 22,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm,
+            vertical: AppSpace.sm,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.explore_outlined, Icons.explore_rounded, 'Explore'),
-              _buildNavItem(1, Icons.video_library_outlined, Icons.video_library_rounded, 'My Learning'),
-              _buildNavItem(2, Icons.edit_note_outlined, Icons.edit_note_rounded, 'Notes'),
-              _buildNavItem(3, Icons.tune_outlined, Icons.tune_rounded, 'Settings'),
+            children: <Widget>[
+              for (var i = 0; i < destinations.length; i++)
+                Expanded(
+                  child: _NavDockItem(
+                    destination: destinations[i],
+                    selected: i == index,
+                    onTap: () => onSelect(i),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(int index, IconData inactiveIcon, IconData activeIcon, String label) {
-    final isSelected = _currentIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
-        behavior: HitTestBehavior.opaque,
-        child: Center(
+class _NavDockItem extends StatelessWidget {
+  const _NavDockItem({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavDestination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = context.tokens;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: destination.label,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: AppRadius.allMd,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: c.primary.withValues(alpha: AppAlpha.soft),
+          highlightColor: Colors.transparent,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            padding: EdgeInsets.symmetric(horizontal: isSelected ? 12 : 8, vertical: 8),
+            duration: AppMotion.fast,
+            curve: AppMotion.emphasized,
+            height: AppSpace.touchTarget,
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primary.withAlpha(45) : Colors.transparent,
-              borderRadius: BorderRadius.circular(18),
-              border: isSelected
-                  ? Border.all(color: AppTheme.primaryGlow.withAlpha(90), width: 1.2)
-                  : null,
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppTheme.primary.withAlpha(35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
+              color: selected
+                  ? c.primary.withValues(alpha: AppAlpha.medium)
+                  : Colors.transparent,
+              borderRadius: AppRadius.allMd,
+              border: selected
+                  ? Border.all(
+                      color: c.primary.withValues(alpha: 0.45),
+                      width: 1,
+                    )
                   : null,
             ),
-            child: Row(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isSelected ? activeIcon : inactiveIcon,
-                  color: isSelected ? AppTheme.primaryGlow : AppTheme.textMuted,
-                  size: 22,
-                ),
-                if (isSelected) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: -0.2,
-                    ),
+              children: <Widget>[
+                AnimatedScale(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.emphasized,
+                  scale: selected ? 1.08 : 1.0,
+                  child: Icon(
+                    selected ? destination.activeIcon : destination.icon,
+                    size: AppIcon.md + 1,
+                    color: selected ? c.primary : t.textMuted,
                   ),
-                ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  destination.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.labelSmall!.copyWith(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.1,
+                    color: selected ? c.primary : t.textMuted,
+                  ),
+                ),
               ],
             ),
           ),
@@ -124,4 +226,3 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     );
   }
 }
-

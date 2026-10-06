@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -11,9 +11,15 @@ import '../models/course_document.dart';
 import '../models/lecture.dart';
 import '../providers/course_provider.dart';
 import '../providers/notes_provider.dart';
-import '../theme/app_theme.dart';
+import '../providers/settings_provider.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
+import '../theme/tech_palette.dart';
+import '../widgets/app_components.dart';
 import '../widgets/sources_credits_dialog.dart';
 
+/// Lecture player: a 16:9 stage with a tokenised HUD, plus four peer views over
+/// the same curriculum record — playlist, resources, notes and stream info.
 class VideoPlayerScreen extends StatefulWidget {
   final Course course;
   final Lecture initialLecture;
@@ -36,6 +42,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   StreamSubscription<YoutubePlayerValue>? _youtubeSubscription;
   Timer? _youtubeProgressTimer;
   Duration _youtubePosition = Duration.zero;
+  PlayerState? _youtubePlayerState;
   bool _youtubeProgressPollActive = false;
   bool _isInitialized = false;
   bool _hasError = false;
@@ -47,31 +54,37 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   bool _completionProgressSaved = false;
   String? _autoAdvancedLectureId;
 
-  // Player settings & behaviors
+  /// 0 = playlist, 1 = resources, 2 = notes, 3 = info.
+  int _viewIndex = 0;
+
+  // Player settings & behaviours
   double _currentSpeed = 1.0;
   bool _showControls = true;
   bool _isLocked = false;
   bool _autoPlayNext = true;
-  BoxFit _videoFit = BoxFit.contain; // contain, cover, fill
+  bool _autoPlaySynced = false;
+  BoxFit _videoFit = BoxFit.contain;
   Timer? _hideControlsTimer;
   Timer? _sleepTimer;
   String _sleepTimerLabel = 'Off';
 
-  // Double tap feedback
+  // Double-tap feedback
   bool _showSeekLeftIndicator = false;
   bool _showSeekRightIndicator = false;
 
-  late TabController _tabController;
   final TextEditingController _noteInputController = TextEditingController();
 
-  // Equalizer animation for playlist
+  /// Drives the now-playing equaliser bars in the playlist.
   late AnimationController _eqController;
+
+  bool get _isPlaying =>
+      _controller?.value.isPlaying ??
+      _youtubePlayerState == PlayerState.playing;
 
   @override
   void initState() {
     super.initState();
     _currentLecture = widget.initialLecture;
-    _tabController = TabController(length: 5, vsync: this);
 
     _eqController = AnimationController(
       vsync: this,
@@ -82,22 +95,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _startHideControlsTimer();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_autoPlaySynced) return;
+    _autoPlaySynced = true;
+    _autoPlayNext = context.read<SettingsProvider>().autoPlayNext;
+  }
+
+  // ===========================================================================
+  // Chrome visibility
+  // ===========================================================================
+
   void _startHideControlsTimer() {
     _hideControlsTimer?.cancel();
     if (!_showControls || _isLocked) return;
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _controller != null && _controller!.value.isPlaying) {
-        setState(() {
-          _showControls = false;
-        });
-      }
+      if (mounted && _isPlaying) setState(() => _showControls = false);
     });
   }
 
   void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
+    setState(() => _showControls = !_showControls);
     if (_showControls) {
       _startHideControlsTimer();
     } else {
@@ -105,12 +124,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     }
   }
 
+  // ===========================================================================
+  // Player lifecycle
+  // ===========================================================================
+
   Future<void> _initializePlayer(String url) async {
     final loadId = ++_playerLoadId;
     final previousController = _controller;
     final previousYoutubeController = _youtubeController;
     _controller = null;
     _youtubeController = null;
+    _youtubePlayerState = null;
     _youtubeProgressTimer?.cancel();
     _youtubeProgressTimer = null;
     unawaited(_youtubeSubscription?.cancel());
@@ -208,6 +232,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       });
       return;
     }
+    if (value.playerState != _youtubePlayerState) {
+      _youtubePlayerState = value.playerState;
+      if (mounted) setState(() {});
+    }
     if (value.playerState == PlayerState.ended &&
         _autoPlayNext &&
         _autoAdvancedLectureId != _currentLecture.id) {
@@ -233,6 +261,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       final position = Duration(seconds: currentSeconds.floor());
       final duration = Duration(seconds: durationSeconds.floor());
       _youtubePosition = position;
+      if (mounted) setState(() {});
       if (duration.inSeconds <= 0) return;
 
       final progress = (position.inMilliseconds / duration.inMilliseconds)
@@ -302,6 +331,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     }
   }
 
+  // ===========================================================================
+  // Navigation between lectures
+  // ===========================================================================
+
   void _switchLecture(Lecture lecture) {
     if (lecture.id == _currentLecture.id) return;
     setState(() {
@@ -313,68 +346,90 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _initializePlayer(lecture.videoUrl);
   }
 
+  Course get _activeCourse =>
+      context.read<CourseProvider>().allCourses.firstWhere(
+            (c) => c.id == widget.course.id,
+            orElse: () => widget.course,
+          );
+
   void _playNextLecture() {
-    final activeCourse = context.read<CourseProvider>().allCourses.firstWhere(
-          (c) => c.id == widget.course.id,
-          orElse: () => widget.course,
-        );
+    final course = _activeCourse;
     final currentIndex =
-        activeCourse.lectures.indexWhere((l) => l.id == _currentLecture.id);
-    if (currentIndex != -1 && currentIndex < activeCourse.lectures.length - 1) {
-      _switchLecture(activeCourse.lectures[currentIndex + 1]);
+        course.lectures.indexWhere((l) => l.id == _currentLecture.id);
+    if (currentIndex != -1 && currentIndex < course.lectures.length - 1) {
+      _switchLecture(course.lectures[currentIndex + 1]);
     }
   }
 
   void _playPreviousLecture() {
-    final activeCourse = context.read<CourseProvider>().allCourses.firstWhere(
-          (c) => c.id == widget.course.id,
-          orElse: () => widget.course,
-        );
+    final course = _activeCourse;
     final currentIndex =
-        activeCourse.lectures.indexWhere((l) => l.id == _currentLecture.id);
+        course.lectures.indexWhere((l) => l.id == _currentLecture.id);
     if (currentIndex > 0) {
-      _switchLecture(activeCourse.lectures[currentIndex - 1]);
+      _switchLecture(course.lectures[currentIndex - 1]);
     }
   }
 
+  // ===========================================================================
+  // Transport
+  // ===========================================================================
+
   void _seekRelative(int seconds) {
-    if (_controller != null && _controller!.value.isInitialized) {
-      final currentPos = _controller!.value.position;
-      final target = currentPos + Duration(seconds: seconds);
-      final clamped = target < Duration.zero
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      final target = controller.value.position + Duration(seconds: seconds);
+      final duration = controller.value.duration;
+      controller.seekTo(target < Duration.zero
           ? Duration.zero
-          : (target > _controller!.value.duration
-              ? _controller!.value.duration
-              : target);
-      _controller!.seekTo(clamped);
+          : (target > duration ? duration : target));
       _startHideControlsTimer();
       return;
     }
-    if (_youtubeController != null) {
-      _youtubeController!.currentTime.then((curr) {
+    final youtube = _youtubeController;
+    if (youtube != null) {
+      youtube.currentTime.then((current) {
         if (!mounted || _youtubeController == null) return;
-        _youtubeController!.seekTo(seconds: (curr + seconds).clamp(0, 999999));
+        youtube.seekTo(seconds: (current + seconds).clamp(0, 999999));
       });
       _startHideControlsTimer();
     }
   }
 
   void _seekToSeconds(int seconds) {
-    if (_controller != null && _controller!.value.isInitialized) {
-      _controller!.seekTo(Duration(seconds: seconds));
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      controller.seekTo(Duration(seconds: seconds));
       _startHideControlsTimer();
       return;
     }
-    if (_youtubeController != null) {
-      _youtubeController!.seekTo(seconds: seconds.toDouble());
-      _startHideControlsTimer();
+    _youtubeController?.seekTo(seconds: seconds.toDouble());
+    _startHideControlsTimer();
+  }
+
+  void _togglePlayPause() {
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      if (controller.value.isPlaying) {
+        controller.pause();
+      } else {
+        controller.play();
+      }
+      setState(() {});
+    } else {
+      final youtube = _youtubeController;
+      if (youtube != null) {
+        if (_youtubePlayerState == PlayerState.playing) {
+          youtube.pauseVideo();
+        } else {
+          youtube.playVideo();
+        }
+      }
     }
+    _startHideControlsTimer();
   }
 
   void _changePlaybackSpeed(double speed) {
-    setState(() {
-      _currentSpeed = speed;
-    });
+    setState(() => _currentSpeed = speed);
     _controller?.setPlaybackSpeed(speed);
     _youtubeController?.setPlaybackRate(speed);
     _startHideControlsTimer();
@@ -382,13 +437,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   void _toggleVideoFit() {
     setState(() {
-      if (_videoFit == BoxFit.contain) {
-        _videoFit = BoxFit.cover;
-      } else if (_videoFit == BoxFit.cover) {
-        _videoFit = BoxFit.fill;
-      } else {
-        _videoFit = BoxFit.contain;
-      }
+      _videoFit = switch (_videoFit) {
+        BoxFit.contain => BoxFit.cover,
+        BoxFit.cover => BoxFit.fill,
+        _ => BoxFit.contain,
+      };
     });
   }
 
@@ -415,12 +468,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     } on PlatformException catch (error) {
       if (enteringFullscreen) await _restorePortraitSystemUi();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Unable to change player orientation: ${error.message ?? error.code}'),
-            backgroundColor: AppTheme.danger,
-          ),
+        showAppSnack(
+          context,
+          'Unable to change player orientation: ${error.message ?? error.code}',
+          icon: Icons.screen_rotation_alt_rounded,
+          isError: true,
         );
       }
     } finally {
@@ -435,117 +487,115 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
+  // ===========================================================================
+  // Sheets
+  // ===========================================================================
+
   void _showSpeedPicker() {
-    showModalBottomSheet(
+    const speeds = <double>[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.surfaceElevated,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Playback Speed',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: speeds.map((s) {
-                    final isSelected = s == _currentSpeed;
-                    return ChoiceChip(
-                      label: Text('${s}x'),
-                      selected: isSelected,
-                      selectedColor: AppTheme.primary,
-                      onSelected: (_) {
-                        _changePlaybackSpeed(s);
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            0,
+            AppSpace.gutter,
+            AppSpace.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Playback speed', style: context.text.titleLarge),
+              const SizedBox(height: AppSpace.lg),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: <Widget>[
+                  for (final speed in speeds)
+                    AppPill(
+                      label: '${speed}x',
+                      icon: speed == _currentSpeed
+                          ? Icons.check_rounded
+                          : Icons.speed_rounded,
+                      color: speed == _currentSpeed
+                          ? context.colors.primary
+                          : context.tokens.textMuted,
+                      selected: speed == _currentSpeed,
+                      onTap: () {
+                        _changePlaybackSpeed(speed);
                         Navigator.pop(context);
                       },
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
+                    ),
+                ],
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _showSleepTimerPicker() {
-    showModalBottomSheet(
+    const options = <(String, int)>[
+      ('Off', 0),
+      ('15 minutes', 15),
+      ('30 minutes', 30),
+      ('45 minutes', 45),
+      ('60 minutes', 60),
+    ];
+
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.surfaceElevated,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final options = [
-          {'label': 'Off', 'minutes': 0},
-          {'label': '15 Minutes', 'minutes': 15},
-          {'label': '30 Minutes', 'minutes': 30},
-          {'label': '45 Minutes', 'minutes': 45},
-          {'label': '60 Minutes', 'minutes': 60},
-        ];
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Sleep Timer',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                ...options.map((opt) {
-                  final label = opt['label'] as String;
-                  final min = opt['minutes'] as int;
-                  final isSelected = _sleepTimerLabel == label;
-                  return ListTile(
-                    leading: Icon(Icons.timer_outlined,
-                        color: isSelected
-                            ? AppTheme.primaryGlow
-                            : AppTheme.textSecondary),
-                    title: Text(label,
-                        style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: isSelected
-                                ? Colors.white
-                                : AppTheme.textPrimary)),
-                    trailing: isSelected
-                        ? const Icon(Icons.check, color: AppTheme.primaryGlow)
-                        : null,
-                    onTap: () {
-                      _sleepTimer?.cancel();
-                      if (min > 0) {
-                        _sleepTimer = Timer(Duration(minutes: min), () {
-                          _controller?.pause();
-                          _youtubeController?.pauseVideo();
-                          if (mounted) setState(() {});
-                        });
-                        setState(() => _sleepTimerLabel = label);
-                      } else {
-                        setState(() => _sleepTimerLabel = 'Off');
-                      }
-                      Navigator.pop(context);
-                    },
-                  );
-                }),
-              ],
-            ),
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            0,
+            AppSpace.gutter,
+            AppSpace.xl,
           ),
-        );
-      },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Sleep timer', style: context.text.titleLarge),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                'Playback pauses automatically so you can rest.',
+                style: context.text.bodySmall,
+              ),
+              const SizedBox(height: AppSpace.lg),
+              for (final (label, minutes) in options)
+                _PickerRow(
+                  icon: minutes == 0
+                      ? Icons.notifications_off_outlined
+                      : Icons.bedtime_rounded,
+                  label: label,
+                  selected: _sleepTimerLabel == label,
+                  onTap: () {
+                    _sleepTimer?.cancel();
+                    if (minutes > 0) {
+                      _sleepTimer = Timer(Duration(minutes: minutes), () {
+                        _controller?.pause();
+                        _youtubeController?.pauseVideo();
+                        if (mounted) {
+                          setState(() => _sleepTimerLabel = 'Ended');
+                        }
+                      });
+                    }
+                    setState(() => _sleepTimerLabel = label);
+                    Navigator.pop(context);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -554,6 +604,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final s = d.inSeconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
+
+  Duration get _position => _controller?.value.position ?? _youtubePosition;
 
   @override
   void dispose() {
@@ -566,14 +618,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     unawaited(_youtubeSubscription?.cancel());
     unawaited(_youtubeController?.close());
     unawaited(_restorePortraitSystemUi());
-    _tabController.dispose();
     _noteInputController.dispose();
     _eqController.dispose();
     super.dispose();
   }
 
+  // ===========================================================================
+  // Build
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final activeCourse = context.watch<CourseProvider>().allCourses.firstWhere(
           (c) => c.id == widget.course.id,
           orElse: () => widget.course,
@@ -582,125 +638,59 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     return PopScope(
       canPop: !_isFullscreen,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _isFullscreen) {
-          _toggleFullscreen();
-        }
+        if (!didPop && _isFullscreen) _toggleFullscreen();
       },
       child: Scaffold(
-        backgroundColor: AppTheme.background,
+        backgroundColor: t.canvas,
         body: SafeArea(
           top: !_isFullscreen,
           bottom: !_isFullscreen,
           child: Column(
-            children: [
-              // Video Player Viewport with Gestures & HUD
+            children: <Widget>[
               if (_isFullscreen)
-                Expanded(child: _buildVideoPlayerArea(fullscreen: true))
+                Expanded(child: _buildStage())
               else
-                _buildVideoPlayerArea(),
-
-              if (!_isFullscreen) ...[
-                // Sleek Horizontal Tab Bar
-                Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AppTheme.cardBorder.withAlpha(120),
-                        width: 1.0,
-                      ),
-                    ),
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _buildStage(),
+                ),
+              if (!_isFullscreen) ...<Widget>[
+                _NowPlayingBar(
+                  lecture: _currentLecture,
+                  course: widget.course,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    AppSpace.md,
+                    AppSpace.gutter,
+                    AppSpace.md,
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    indicatorColor: AppTheme.primaryGlow,
-                    indicatorWeight: 3.0,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: AppTheme.textMuted,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.play_circle_outline, size: 18),
-                            const SizedBox(width: 8),
-                            Text('Videos (${activeCourse.lectures.length})'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.description_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            Text('Docs (${activeCourse.documents.length})'),
-                          ],
-                        ),
-                      ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.edit_note, size: 19),
-                            SizedBox(width: 8),
-                            Text('Notes'),
-                          ],
-                        ),
-                      ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline, size: 18),
-                            SizedBox(width: 8),
-                            Text('Overview'),
-                          ],
-                        ),
-                      ),
-                      const Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.tune_outlined, size: 18),
-                            SizedBox(width: 8),
-                            Text('Tech Specs'),
-                          ],
-                        ),
-                      ),
+                  child: AppSegmentControl(
+                    labels: <String>[
+                      'Playlist',
+                      'Docs${activeCourse.documents.isEmpty ? '' : ' ${activeCourse.documents.length}'}',
+                      'Notes',
+                      'Info',
                     ],
+                    icons: const <IconData>[
+                      Icons.playlist_play_rounded,
+                      Icons.description_outlined,
+                      Icons.edit_note_rounded,
+                      Icons.info_outline_rounded,
+                    ],
+                    selectedIndex: _viewIndex,
+                    onChanged: (value) => setState(() => _viewIndex = value),
                   ),
                 ),
-
-                // Tab Views
                 Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
+                  child: IndexedStack(
+                    index: _viewIndex,
+                    children: <Widget>[
                       _buildPlaylistTab(activeCourse),
-                      _buildDocumentsTab(activeCourse),
+                      _buildResourcesTab(activeCourse),
                       _buildNotesTab(),
-                      _buildOverviewTab(activeCourse),
-                      _buildDetailsTab(activeCourse),
+                      _buildInfoTab(activeCourse),
                     ],
                   ),
                 ),
@@ -712,72 +702,71 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
-  Widget _buildVideoPlayerArea({bool fullscreen = false}) {
-    final player = Container(
+  // ===========================================================================
+  // Stage
+  // ===========================================================================
+
+  Widget _buildStage() {
+    final hasVideo = _isInitialized && !_hasError;
+
+    return ColoredBox(
       color: Colors.black,
       child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Underlying Video Viewport
-          if (_isInitialized && _youtubeController != null && !_hasError)
+        fit: StackFit.expand,
+        children: <Widget>[
+          if (hasVideo && _youtubeController != null)
             YoutubePlayer(
               controller: _youtubeController!,
               aspectRatio: 16 / 9,
               backgroundColor: Colors.black,
               keepAlive: true,
             )
-          else if (_isInitialized && _controller != null && !_hasError)
-            FittedBox(
-              fit: _videoFit,
-              child: SizedBox(
-                width: _controller!.value.size.width,
-                height: _controller!.value.size.height,
-                child: VideoPlayer(_controller!),
+          else if (hasVideo && _controller != null)
+            Center(
+              child: FittedBox(
+                fit: _videoFit,
+                child: SizedBox(
+                  width: _controller!.value.size.width,
+                  height: _controller!.value.size.height,
+                  child: VideoPlayer(_controller!),
+                ),
               ),
             )
           else if (_hasError)
             _buildErrorView()
           else
-            const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryGlow),
+            Center(
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.6,
+                  color: context.tokens.brandGlow,
+                ),
+              ),
             ),
-
-          // Gesture Detector Layer (Double tap left/right, single tap toggle)
-          if (_isInitialized && _controller != null && !_hasError)
+          if (hasVideo) ...<Widget>[
+            // Single tap toggles the HUD, double tap seeks ±10s.
             Positioned.fill(
               child: Row(
-                children: [
-                  // Left half (seek -10s)
+                children: <Widget>[
                   Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
+                    child: _StageGestureArea(
                       onTap: _toggleControls,
                       onDoubleTap: () {
                         if (_isLocked) return;
                         _seekRelative(-10);
-                        setState(() => _showSeekLeftIndicator = true);
-                        Timer(const Duration(milliseconds: 650), () {
-                          if (mounted) {
-                            setState(() => _showSeekLeftIndicator = false);
-                          }
-                        });
+                        _flashSeekFeedback(left: true);
                       },
                     ),
                   ),
-                  // Right half (seek +10s)
                   Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
+                    child: _StageGestureArea(
                       onTap: _toggleControls,
                       onDoubleTap: () {
                         if (_isLocked) return;
                         _seekRelative(10);
-                        setState(() => _showSeekRightIndicator = true);
-                        Timer(const Duration(milliseconds: 650), () {
-                          if (mounted) {
-                            setState(() => _showSeekRightIndicator = false);
-                          }
-                        });
+                        _flashSeekFeedback(left: false);
                       },
                     ),
                   ),
@@ -785,367 +774,113 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               ),
             ),
 
-          // Animated Double-Tap Feedback Overlays
-          if (_showSeekLeftIndicator)
-            Positioned(
-              left: 36,
-              child: _buildSeekFeedbackIndicator(Icons.replay_10, '-10s'),
-            ),
-          if (_showSeekRightIndicator)
-            Positioned(
-              right: 36,
-              child: _buildSeekFeedbackIndicator(Icons.forward_10, '+10s'),
-            ),
+            if (_showSeekLeftIndicator)
+              const Center(child: _SeekFeedback(icon: Icons.replay_10_rounded)),
+            if (_showSeekRightIndicator)
+              const Center(
+                  child: _SeekFeedback(icon: Icons.forward_10_rounded)),
 
-          // Video Controls Overlay (Auto-hides)
-          if (_isInitialized && _controller != null && !_hasError)
-            ValueListenableBuilder<VideoPlayerValue>(
-              valueListenable: _controller!,
-              builder: (context, value, child) {
-                return Stack(
-                  children: [
+            if (_controller != null)
+              ValueListenableBuilder<VideoPlayerValue>(
+                valueListenable: _controller!,
+                builder: (context, value, _) => Stack(
+                  children: <Widget>[
                     if (value.isBuffering)
-                      const Center(
-                        child: CircularProgressIndicator(
-                          color: AppTheme.primaryGlow,
+                      Center(
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: context.tokens.brandGlow,
+                          ),
                         ),
                       ),
-                    _buildControlsOverlay(),
+                    _buildHud(),
                   ],
-                );
-              },
-            ),
-        ],
-      ),
-    );
-    if (fullscreen) return player;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final naturalHeight = constraints.maxWidth * 9 / 16;
-        final maxHeight = MediaQuery.sizeOf(context).height * 0.55;
-        return SizedBox(
-          width: double.infinity,
-          height: math.min(naturalHeight, maxHeight),
-          child: player,
-        );
-      },
-    );
-  }
-
-  Widget _buildSeekFeedbackIndicator(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.black.withAlpha(190),
-        borderRadius: BorderRadius.circular(30),
-        border:
-            Border.all(color: AppTheme.primaryGlow.withAlpha(140), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withAlpha(80),
-            blurRadius: 18,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(width: 6),
-          Text(text,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14)),
+                ),
+              )
+            else
+              _buildHud(),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildControlsOverlay() {
-    final pos = _controller?.value.position ?? _youtubePosition;
-    final dur = _controller?.value.duration ?? Duration.zero;
-    final isPlaying = _controller?.value.isPlaying ?? false;
+  void _flashSeekFeedback({required bool left}) {
+    setState(() {
+      if (left) {
+        _showSeekLeftIndicator = true;
+      } else {
+        _showSeekRightIndicator = true;
+      }
+    });
+    Timer(const Duration(milliseconds: 650), () {
+      if (!mounted) return;
+      setState(() {
+        _showSeekLeftIndicator = false;
+        _showSeekRightIndicator = false;
+      });
+    });
+  }
 
-    if (_isLocked) {
-      // Show only unlock button when locked
-      return SafeArea(
-        child: Container(
-          color: Colors.black38,
-          padding: const EdgeInsets.all(16),
-          alignment: Alignment.topRight,
-          child: InkWell(
-            onTap: () {
-              setState(() => _isLocked = false);
-              _startHideControlsTimer();
-            },
-            borderRadius: BorderRadius.circular(28),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withAlpha(200),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: Colors.white.withAlpha(50), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(140),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.lock, color: Colors.white, size: 24),
-                  SizedBox(width: 8),
-                  Text(
-                    'Unlock Controls',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _buildErrorView() {
+    final t = context.tokens;
 
-    return SafeArea(
-      child: IgnorePointer(
-        ignoring: !_showControls,
-        child: AnimatedOpacity(
-          opacity: _showControls ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 250),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.black.withAlpha(200),
-                  Colors.transparent,
-                  Colors.black.withAlpha(220),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+    return ColoredBox(
+      color: t.canvasSunken,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // TOP BAR: Back, Lecture Info, Actions
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        tooltip: _isFullscreen
-                            ? 'Exit fullscreen and return'
-                            : 'Back',
-                        icon: Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        onPressed: _isFullscreen
-                            ? _toggleFullscreen
-                            : () => Navigator.pop(context),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _currentLecture.title,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              widget.course.title,
-                              style: const TextStyle(
-                                  color: AppTheme.textSecondary, fontSize: 11),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Aspect Ratio: ${_videoFit.name}',
-                        icon: const Icon(Icons.aspect_ratio,
-                            color: Colors.white, size: 20),
-                        onPressed: _toggleVideoFit,
-                      ),
-                      IconButton(
-                        tooltip: 'Lock Controls',
-                        icon: const Icon(Icons.lock_open,
-                            color: Colors.white, size: 20),
-                        onPressed: () => setState(() => _isLocked = true),
-                      ),
-                      IconButton(
-                        tooltip: 'Sleep Timer: $_sleepTimerLabel',
-                        icon: Icon(
-                          Icons.timer_outlined,
-                          color: _sleepTimerLabel != 'Off'
-                              ? AppTheme.accent
-                              : Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: _showSleepTimerPicker,
-                      ),
-                    ],
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: t.danger.withValues(alpha: AppAlpha.soft),
+                    border: Border.all(
+                      color: t.danger.withValues(alpha: AppAlpha.medium),
+                    ),
                   ),
+                  child: Icon(Icons.error_outline_rounded,
+                      size: 30, color: t.danger),
                 ),
-
-                // CENTER TRANSPORT CONTROLS
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 28,
-                      icon: const Icon(Icons.skip_previous,
-                          color: Colors.white70),
-                      onPressed: _playPreviousLecture,
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      iconSize: 34,
-                      icon: const Icon(Icons.replay_10, color: Colors.white),
-                      onPressed: () => _seekRelative(-10),
-                    ),
-                    const SizedBox(width: 14),
-                    // Glowing Play/Pause Button
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primary.withAlpha(120),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        iconSize: 56,
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_filled,
-                          color: Colors.white,
-                        ),
-                        onPressed: () {
-                          if (_controller != null) {
-                            if (_controller!.value.isPlaying) {
-                              _controller!.pause();
-                            } else {
-                              _controller!.play();
-                            }
-                          }
-                          setState(() {});
-                          _startHideControlsTimer();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    IconButton(
-                      iconSize: 34,
-                      icon: const Icon(Icons.forward_10, color: Colors.white),
-                      onPressed: () => _seekRelative(10),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      iconSize: 28,
-                      icon: const Icon(Icons.skip_next, color: Colors.white70),
-                      onPressed: _playNextLecture,
-                    ),
-                  ],
+                const SizedBox(height: AppSpace.lg),
+                Text(
+                  'Stream unavailable',
+                  textAlign: TextAlign.center,
+                  style: context.text.titleLarge,
                 ),
-
-                // BOTTOM BAR: Scrubber, Timestamps & Speed
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      VideoProgressIndicator(
-                        _controller!,
-                        allowScrubbing: true,
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        colors: const VideoProgressColors(
-                          playedColor: AppTheme.primaryGlow,
-                          bufferedColor: Colors.white30,
-                          backgroundColor: Colors.white12,
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${_formatDuration(pos)} / ${_formatDuration(dur)}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onTap: _showSpeedPicker,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.surfaceElevated.withAlpha(220),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border:
-                                        Border.all(color: AppTheme.cardBorder),
-                                  ),
-                                  child: Text(
-                                    '${_currentSpeed}x',
-                                    style: const TextStyle(
-                                      color: AppTheme.secondary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                iconSize: 20,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                tooltip: _isFullscreen
-                                    ? 'Exit fullscreen'
-                                    : 'Enter fullscreen',
-                                icon: Icon(
-                                  _isFullscreen
-                                      ? Icons.fullscreen_exit
-                                      : Icons.fullscreen,
-                                  color: Colors.white,
-                                ),
-                                onPressed: _toggleFullscreen,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  _errorMessage,
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodySmall,
+                ),
+                const SizedBox(height: AppSpace.xl),
+                AppButton(
+                  label: 'Retry stream',
+                  icon: Icons.refresh_rounded,
+                  expand: false,
+                  onPressed: () => _initializePlayer(_currentLecture.videoUrl),
+                ),
+                if (_isFullscreen) ...<Widget>[
+                  const SizedBox(height: AppSpace.md),
+                  TextButton.icon(
+                    onPressed: _toggleFullscreen,
+                    icon: const Icon(Icons.fullscreen_exit_rounded,
+                        size: AppIcon.sm),
+                    label: const Text('Exit fullscreen'),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1154,474 +889,475 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
-  Widget _buildErrorView() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: AppTheme.danger, size: 44),
-          const SizedBox(height: 8),
-          const Text(
-            'Failed to stream video lecture',
-            style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _errorMessage,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
+  // ===========================================================================
+  // HUD
+  // ===========================================================================
+
+  Widget _buildHud() {
+    if (_isLocked) return _buildLockHud();
+
+    return IgnorePointer(
+      ignoring: !_showControls,
+      child: AnimatedOpacity(
+        opacity: _showControls ? 1 : 0,
+        duration: AppMotion.fast,
+        curve: AppMotion.standard,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Colors.black.withValues(alpha: 0.65),
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.78),
+              ],
+              stops: const <double>[0, 0.45, 1],
             ),
-            icon: const Icon(Icons.refresh, size: 16),
-            label: const Text('Retry Video Stream'),
-            onPressed: () => _initializePlayer(_currentLecture.videoUrl),
           ),
-          if (_isFullscreen)
-            IconButton(
-              tooltip: 'Exit fullscreen',
-              onPressed: _toggleFullscreen,
-              icon: const Icon(Icons.fullscreen_exit, color: Colors.white),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.md,
+                vertical: AppSpace.sm,
+              ),
+              child: Column(
+                children: <Widget>[
+                  _hudTopBar(),
+                  const Spacer(),
+                  _hudTransport(),
+                  const SizedBox(height: AppSpace.sm),
+                  _hudScrubber(),
+                ],
+              ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildPlaylistTab(Course course) {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        // Auto-play next header toggle
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12, left: 6, right: 6, top: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+  Widget _buildLockHud() {
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topRight,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.md),
+            child: _HudPill(
+              icon: Icons.lock_rounded,
+              label: 'Unlock controls',
+              onTap: () {
+                setState(() => _isLocked = false);
+                _startHideControlsTimer();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hudTopBar() {
+    return Row(
+      children: <Widget>[
+        _HudIconButton(
+          icon: _isFullscreen
+              ? Icons.arrow_back_rounded
+              : Icons.arrow_back_ios_new_rounded,
+          tooltip: _isFullscreen ? 'Exit fullscreen' : 'Back',
+          onTap:
+              _isFullscreen ? _toggleFullscreen : () => Navigator.pop(context),
+        ),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
               Text(
-                '${course.lectures.length} Lectures in Syllabus',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
+                _currentLecture.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.titleMedium!.copyWith(color: Colors.white),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Auto-Play Next',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                  ),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: _autoPlayNext,
-                    activeColor: AppTheme.primaryGlow,
-                    onChanged: (value) => setState(() => _autoPlayNext = value),
-                  ),
-                ],
+              Text(
+                widget.course.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.bodySmall!.copyWith(
+                  color: Colors.white.withValues(alpha: 0.72),
+                ),
               ),
             ],
           ),
         ),
-
-        ...course.lectures.map((lecture) {
-          final isSelected = lecture.id == _currentLecture.id;
-          final isCompleted =
-              lecture.isCompleted || lecture.watchProgress >= 0.9;
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? AppTheme.surfaceElevated : AppTheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isSelected ? AppTheme.primaryGlow : AppTheme.cardBorder,
-                width: isSelected ? 1.5 : 1,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppTheme.primary.withAlpha(40),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              leading: CircleAvatar(
-                backgroundColor: isSelected
-                    ? AppTheme.primary
-                    : (isCompleted
-                        ? AppTheme.success.withAlpha(40)
-                        : AppTheme.surfaceElevated),
-                foregroundColor:
-                    isSelected ? Colors.white : AppTheme.textSecondary,
-                child: isSelected
-                    ? AnimatedBuilder(
-                        animation: _eqController,
-                        builder: (context, child) {
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildEqBar(0.4 + 0.6 * _eqController.value),
-                              const SizedBox(width: 2),
-                              _buildEqBar(0.8 - 0.5 * _eqController.value),
-                              const SizedBox(width: 2),
-                              _buildEqBar(0.3 + 0.7 * _eqController.value),
-                            ],
-                          );
-                        },
-                      )
-                    : (isCompleted
-                        ? const Icon(Icons.check,
-                            size: 18, color: AppTheme.success)
-                        : Text('${lecture.number}',
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.bold))),
-              ),
-              title: Text(
-                lecture.title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected ? Colors.white : AppTheme.textPrimary,
-                ),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      lecture.duration,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                    const SizedBox(width: 8),
-                    if (lecture.watchProgress > 0)
-                      Text(
-                        isCompleted
-                            ? '✓ Watched'
-                            : '${(lecture.watchProgress * 100).toInt()}% watched',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isCompleted
-                              ? AppTheme.success
-                              : AppTheme.secondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              trailing: isSelected
-                  ? const Icon(Icons.graphic_eq, color: AppTheme.primaryGlow)
-                  : const Icon(Icons.play_circle_outline,
-                      color: AppTheme.textMuted, size: 20),
-              onTap: () => _switchLecture(lecture),
-            ),
-          );
-        }),
+        _HudIconButton(
+          icon: Icons.aspect_ratio_rounded,
+          tooltip: 'Aspect ratio: ${_videoFit.name}',
+          onTap: _toggleVideoFit,
+        ),
+        _HudIconButton(
+          icon: Icons.lock_open_rounded,
+          tooltip: 'Lock controls',
+          onTap: () => setState(() => _isLocked = true),
+        ),
+        _HudIconButton(
+          icon: Icons.bedtime_rounded,
+          tooltip: 'Sleep timer: $_sleepTimerLabel',
+          color: _sleepTimerLabel != 'Off' ? context.tokens.accent : null,
+          onTap: _showSleepTimerPicker,
+        ),
       ],
     );
   }
 
-  Widget _buildEqBar(double heightFactor) {
-    return Container(
-      width: 2.5,
-      height: 14 * heightFactor,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(2),
-      ),
+  Widget _hudTransport() {
+    final t = context.tokens;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        _HudIconButton(
+          icon: Icons.skip_previous_rounded,
+          tooltip: 'Previous lecture',
+          size: 24,
+          onTap: _playPreviousLecture,
+        ),
+        const SizedBox(width: AppSpace.sm),
+        _HudIconButton(
+          icon: Icons.replay_10_rounded,
+          tooltip: 'Back 10 seconds',
+          size: 28,
+          onTap: () => _seekRelative(-10),
+        ),
+        const SizedBox(width: AppSpace.md),
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: t.green.withValues(alpha: AppAlpha.glow),
+                blurRadius: 22,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: _HudIconButton(
+            icon:
+                _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+            tooltip: _isPlaying ? 'Pause' : 'Play',
+            size: 56,
+            onTap: _togglePlayPause,
+          ),
+        ),
+        const SizedBox(width: AppSpace.md),
+        _HudIconButton(
+          icon: Icons.forward_10_rounded,
+          tooltip: 'Forward 10 seconds',
+          size: 28,
+          onTap: () => _seekRelative(10),
+        ),
+        const SizedBox(width: AppSpace.sm),
+        _HudIconButton(
+          icon: Icons.skip_next_rounded,
+          tooltip: 'Next lecture',
+          size: 24,
+          onTap: _playNextLecture,
+        ),
+      ],
     );
   }
 
-  Widget _buildDocumentsTab(Course course) {
-    final docs = course.documents;
-    if (docs.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.folder_open, size: 48, color: AppTheme.textMuted),
-            SizedBox(height: 8),
-            Text(
-              'No companion documents attached.',
-              style: TextStyle(color: AppTheme.textMuted),
+  Widget _hudScrubber() {
+    final t = context.tokens;
+    final duration = _controller?.value.duration ?? Duration.zero;
+
+    return Row(
+      children: <Widget>[
+        if (_controller != null)
+          Expanded(
+            child: VideoProgressIndicator(
+              _controller!,
+              allowScrubbing: true,
+              padding: EdgeInsets.zero,
+              colors: VideoProgressColors(
+                playedColor: t.green,
+                bufferedColor: Colors.white.withValues(alpha: 0.30),
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
+              ),
             ),
-          ],
+          )
+        else
+          Expanded(
+            child: AppProgressBar(
+              value: duration.inMilliseconds == 0
+                  ? 0
+                  : _position.inMilliseconds / duration.inMilliseconds,
+              color: t.green,
+              height: 4,
+              background: Colors.white.withValues(alpha: 0.14),
+            ),
+          ),
+        const SizedBox(width: AppSpace.md),
+        Text(
+          '${_formatDuration(_position)} / ${_formatDuration(duration)}',
+          style: context.text.monoSmall.copyWith(color: Colors.white70),
         ),
+        const SizedBox(width: AppSpace.md),
+        _HudPill(
+          label: '${_currentSpeed}x',
+          onTap: _showSpeedPicker,
+        ),
+        const SizedBox(width: AppSpace.sm),
+        _HudIconButton(
+          icon: _isFullscreen
+              ? Icons.fullscreen_exit_rounded
+              : Icons.fullscreen_rounded,
+          tooltip: _isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+          onTap: _toggleFullscreen,
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // Playlist
+  // ===========================================================================
+
+  Widget _buildPlaylistTab(Course course) {
+    final t = context.tokens;
+
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.xs,
+        AppSpace.gutter,
+        AppSpace.x4l,
+      ),
+      itemCount: course.lectures.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.md),
+            child: AppSurface.inset(
+              radius: AppRadius.md,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.md,
+                vertical: AppSpace.sm,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(Icons.bolt_rounded, size: AppIcon.sm, color: t.green),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: Text(
+                      '${course.lectures.length} lectures in syllabus',
+                      style: context.text.labelMedium,
+                    ),
+                  ),
+                  Text('Auto-play next', style: context.text.labelSmall),
+                  Switch(
+                    value: _autoPlayNext,
+                    onChanged: (value) {
+                      setState(() => _autoPlayNext = value);
+                      context.read<SettingsProvider>().setAutoPlayNext(value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final lecture = course.lectures[index - 1];
+        return _PlaylistRow(
+          lecture: lecture,
+          selected: lecture.id == _currentLecture.id,
+          eqAnimation: _eqController,
+          onTap: () => _switchLecture(lecture),
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // Resources
+  // ===========================================================================
+
+  Widget _buildResourcesTab(Course course) {
+    final docs = course.documents;
+
+    if (docs.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        children: const <Widget>[
+          AppEmptyState(
+            icon: Icons.folder_open_rounded,
+            title: 'No companion documents',
+            message:
+                'This curriculum ships video lectures only. Slides and labs '
+                'appear here when the repository publishes them.',
+          ),
+        ],
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.xs,
+        AppSpace.gutter,
+        AppSpace.x4l,
+      ),
       itemCount: docs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpace.sm),
       itemBuilder: (context, index) {
         final CourseDocument doc = docs[index];
-        IconData icon;
-        Color iconColor;
-        Color bgColor;
-
-        switch (doc.type) {
-          case 'slides':
-          case 'pdf':
-            icon = Icons.picture_as_pdf;
-            iconColor = const Color(0xFFF43F5E);
-            bgColor = const Color(0xFFF43F5E).withAlpha(40);
-            break;
-          case 'code':
-            icon = Icons.code_rounded;
-            iconColor = AppTheme.primaryGlow;
-            bgColor = AppTheme.primary.withAlpha(40);
-            break;
-          case 'cheatsheet':
-            icon = Icons.bolt;
-            iconColor = AppTheme.accent;
-            bgColor = AppTheme.accent.withAlpha(40);
-            break;
-          default:
-            icon = Icons.article_outlined;
-            iconColor = AppTheme.secondary;
-            bgColor = AppTheme.secondary.withAlpha(40);
-        }
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.cardBorder),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.title,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        doc.description,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${doc.type.toUpperCase()} • ${doc.sizeFormatted}',
-                        style: const TextStyle(
-                            fontSize: 10, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.download_for_offline_outlined,
-                      color: AppTheme.secondary, size: 22),
-                  tooltip: 'Save Offline',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content:
-                            Text('Saved "${doc.title}" for offline study!'),
-                        backgroundColor: AppTheme.surfaceElevated,
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+        return _ResourceRow(
+          doc: doc,
+          onSave: () => showAppSnack(
+            context,
+            '“${doc.title}” cached for offline study',
           ),
         );
       },
     );
   }
 
+  // ===========================================================================
+  // Notes
+  // ===========================================================================
+
   Widget _buildNotesTab() {
     return Consumer<NotesProvider>(
-      builder: (context, notesProv, _) {
-        final notes = notesProv.getNotesForLecture(_currentLecture.id);
-        final currentPos = _controller?.value.position ?? _youtubePosition;
+      builder: (context, notes, _) {
+        final t = context.tokens;
+        final lectureNotes = notes.getNotesForLecture(_currentLecture.id);
+        final position = _position;
 
         return Column(
-          children: [
-            // Quick Note input bar
+          children: <Widget>[
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: AppTheme.surface,
-                border: Border(
-                    bottom: BorderSide(color: AppTheme.cardBorder, width: 0.5)),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.gutter,
+                AppSpace.sm,
+                AppSpace.gutter,
+                AppSpace.md,
+              ),
+              decoration: BoxDecoration(
+                color: t.canvas,
+                border: Border(bottom: BorderSide(color: t.hairline)),
               ),
               child: Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceElevated,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.cardBorder),
-                    ),
-                    child: Text(
-                      _formatDuration(currentPos),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        color: AppTheme.secondary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  AppPill(
+                    label: _formatDuration(position),
+                    icon: Icons.schedule_rounded,
+                    color: t.green,
+                    dense: true,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpace.sm),
                   Expanded(
                     child: TextField(
                       controller: _noteInputController,
-                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _saveNote(notes, position),
+                      style: context.text.bodyMedium,
                       decoration: InputDecoration(
-                        hintText:
-                            'Bookmark thought at ${_formatDuration(currentPos)}...',
-                        hintStyle: const TextStyle(
-                            color: AppTheme.textMuted, fontSize: 13),
-                        filled: true,
-                        fillColor: AppTheme.surfaceElevated,
+                        hintText: 'Bookmark a thought at '
+                            '${_formatDuration(position)}…',
+                        isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
+                          horizontal: AppSpace.md,
+                          vertical: AppSpace.md,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    onPressed: () {
-                      final text = _noteInputController.text.trim();
-                      if (text.isEmpty) return;
-
-                      notesProv.addNote(
-                        courseId: widget.course.id,
-                        lectureId: _currentLecture.id,
-                        lectureTitle: _currentLecture.title,
-                        timestampSeconds: currentPos.inSeconds,
-                        content: text,
-                      );
-                      _noteInputController.clear();
-                      FocusScope.of(context).unfocus();
-                    },
-                    child: const Text('Save'),
+                  const SizedBox(width: AppSpace.sm),
+                  IconButton.filled(
+                    onPressed: () => _saveNote(notes, position),
+                    tooltip: 'Save note',
+                    iconSize: AppIcon.sm,
+                    icon: const Icon(Icons.add_rounded),
                   ),
                 ],
               ),
             ),
-
-            // Notes list
             Expanded(
-              child: notes.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.edit_note,
-                              size: 48,
-                              color: AppTheme.textMuted.withAlpha(120)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'No notes for this lecture yet.',
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Type above to save timestamp-synced study bookmarks!',
-                            style: TextStyle(
-                                color: AppTheme.textMuted, fontSize: 12),
-                          ),
-                        ],
+              child: lectureNotes.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
                       ),
+                      children: const <Widget>[
+                        AppEmptyState(
+                          compact: true,
+                          icon: Icons.edit_note_rounded,
+                          title: 'No notes for this lecture',
+                          message:
+                              'Capture timestamp-synced study bookmarks above — '
+                              'they stay attached to this lecture forever.',
+                        ),
+                      ],
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: notes.length,
+                  : ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.gutter,
+                        AppSpace.md,
+                        AppSpace.gutter,
+                        AppSpace.x4l,
+                      ),
+                      itemCount: lectureNotes.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: AppSpace.sm),
                       itemBuilder: (context, index) {
-                        final note = notes[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.cardBorder),
+                        final note = lectureNotes[index];
+                        return AppSurface.inset(
+                          radius: AppRadius.md,
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpace.md,
+                            AppSpace.md,
+                            AppSpace.xs,
+                            AppSpace.md,
                           ),
-                          child: ListTile(
-                            leading: ActionChip(
-                              label: Text(note.formattedTimestamp),
-                              labelStyle: const TextStyle(
-                                color: AppTheme.secondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              AppPill(
+                                label: note.formattedTimestamp,
+                                icon: Icons.play_arrow_rounded,
+                                color: t.green,
+                                dense: true,
+                                selected: true,
+                                onTap: () =>
+                                    _seekToSeconds(note.timestampSeconds),
                               ),
-                              backgroundColor: AppTheme.surfaceElevated,
-                              side: const BorderSide(
-                                  color: AppTheme.secondary, width: 0.8),
-                              onPressed: () =>
-                                  _seekToSeconds(note.timestampSeconds),
-                            ),
-                            title: Text(
-                              note.content,
-                              style: const TextStyle(
-                                  fontSize: 13, color: AppTheme.textPrimary),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  size: 18, color: AppTheme.textMuted),
-                              onPressed: () => notesProv.deleteNote(note.id),
-                            ),
+                              const SizedBox(width: AppSpace.md),
+                              Expanded(
+                                child: Text(
+                                  note.content,
+                                  style: context.text.bodyMedium,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => notes.deleteNote(note.id),
+                                tooltip: 'Delete note',
+                                iconSize: AppIcon.sm,
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: t.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -1633,167 +1369,757 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
   }
 
-  Widget _buildDetailsTab(Course course) {
+  void _saveNote(NotesProvider notes, Duration position) {
+    final text = _noteInputController.text.trim();
+    if (text.isEmpty) return;
+
+    notes.addNote(
+      courseId: widget.course.id,
+      lectureId: _currentLecture.id,
+      lectureTitle: _currentLecture.title,
+      timestampSeconds: position.inSeconds,
+      content: text,
+    );
+    _noteInputController.clear();
+    FocusScope.of(context).unfocus();
+    showAppSnack(context, 'Note saved at ${_formatDuration(position)}');
+  }
+
+  // ===========================================================================
+  // Info
+  // ===========================================================================
+
+  Widget _buildInfoTab(Course course) {
+    final t = context.tokens;
+
     return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Live Stream Engine Specs Card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: AppTheme.darkCardGradient,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.cardBorderGlow),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.xs,
+        AppSpace.gutter,
+        AppSpace.x4l,
+      ),
+      children: <Widget>[
+        // ---- Stream health ---------------------------------------------
+        AppSurface(
+          radius: AppRadius.lg,
+          glow: t.success,
+          border: BorderSide(color: t.success.withValues(alpha: 0.28)),
+          gradient: LinearGradient(
+            colors: <Color>[
+              Color.alphaBlend(
+                t.success.withValues(alpha: AppAlpha.wash),
+                t.surface,
+              ),
+              t.surface,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          padding: const EdgeInsets.all(AppSpace.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: <Widget>[
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.success,
-                          shape: BoxShape.circle,
+                children: <Widget>[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: t.success,
+                      shape: BoxShape.circle,
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: t.success.withValues(alpha: AppAlpha.glow),
+                          blurRadius: 8,
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Cloud Stream Active',
-                        style: TextStyle(
-                            color: AppTheme.success,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const Text(
-                    'Full HD 1080p',
-                    style: TextStyle(
-                        color: AppTheme.primaryGlow,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: Text(
+                      'Cloud stream active',
+                      style:
+                          context.text.titleMedium!.copyWith(color: t.success),
+                    ),
+                  ),
+                  AppPill(
+                    label: 'FULL HD 1080p',
+                    icon: Icons.hd_rounded,
+                    color: t.brandGlow,
+                    dense: true,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Divider(color: AppTheme.cardBorder),
-              const SizedBox(height: 12),
-              _buildMetaRow(
-                  'Delivery Network', 'Direct High-Speed Cloud CDN Stream'),
-              _buildMetaRow(
-                  'Resolution & Codec', '1080p Full HD (H.264 / AAC Audio)'),
-              _buildMetaRow('Offline Caching', 'Device Local Buffer Enabled'),
-              _buildMetaRow('Total Course Size', course.sizeFormatted),
+              const SizedBox(height: AppSpace.md),
+              Divider(height: 1, color: t.hairline),
+              const SizedBox(height: AppSpace.md),
+              _SpecRow(
+                label: 'Delivery network',
+                value: 'Direct high-speed cloud CDN',
+              ),
+              _SpecRow(
+                label: 'Resolution & codec',
+                value: '1080p Full HD · H.264 / AAC',
+              ),
+              _SpecRow(
+                label: 'Offline caching',
+                value: 'Device local buffer enabled',
+              ),
+              _SpecRow(
+                label: 'Curriculum size',
+                value: course.sizeFormatted,
+                showDivider: false,
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        // Open Educational Licensing Credits Button
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            backgroundColor: AppTheme.surfaceElevated,
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: AppTheme.cardBorder),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          icon: const Icon(Icons.verified_user_outlined,
-              size: 18, color: AppTheme.secondary),
-          label: const Text('View Content Sources & Licensing Credits'),
+
+        // ---- Curriculum identity ---------------------------------------
+        const SectionHeader(
+          title: 'Curriculum',
+          padding: EdgeInsets.fromLTRB(0, AppSpace.section, 0, AppSpace.md),
+        ),
+        Text(course.title, style: context.text.titleLarge),
+        const SizedBox(height: AppSpace.md),
+        Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: <Widget>[
+            AppPill(
+              label: course.level,
+              icon: Icons.signal_cellular_alt_rounded,
+              color: TechPalette.levelColor(course.level),
+              dense: true,
+            ),
+            AppPill(
+              label: '★ ${course.rating}',
+              icon: Icons.star_rounded,
+              color: t.accent,
+              dense: true,
+            ),
+            AppPill(
+              label: course.university,
+              icon: Icons.school_rounded,
+              color: t.textMuted,
+              dense: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.lg),
+        Text(course.description, style: context.text.bodyMedium),
+
+        const SectionHeader(
+          title: 'Technologies & Skills',
+          padding: EdgeInsets.fromLTRB(0, AppSpace.section, 0, AppSpace.md),
+        ),
+        Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: <Widget>[
+            for (final tech in course.techStacks)
+              AppPill(
+                label: tech,
+                icon: TechPalette.iconFor(tech),
+                color: TechPalette.colorFor(tech),
+                dense: true,
+              ),
+          ],
+        ),
+
+        const SizedBox(height: AppSpace.xl),
+        AppButton(
+          label: 'Content sources & licensing',
+          icon: Icons.verified_user_rounded,
+          variant: AppButtonVariant.outlined,
           onPressed: () => SourcesCreditsDialog.show(context),
         ),
       ],
     );
   }
+}
 
-  Widget _buildOverviewTab(Course course) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Course title & badges
-        Text(
-          course.title,
-          style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+// =============================================================================
+// Stage pieces
+// =============================================================================
+
+class _StageGestureArea extends StatelessWidget {
+  const _StageGestureArea({required this.onTap, required this.onDoubleTap});
+
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Player surface. Double tap to seek ten seconds.',
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: onTap,
+        onDoubleTap: onDoubleTap,
+      ),
+    );
+  }
+}
+
+class _SeekFeedback extends StatelessWidget {
+  const _SeekFeedback({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.lg,
+          vertical: AppSpace.md,
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            Chip(
-              label: Text(course.level),
-              backgroundColor: AppTheme.primary.withAlpha(40),
-              side: const BorderSide(color: AppTheme.primary, width: 0.5),
-              labelStyle: const TextStyle(fontSize: 11, color: Colors.white),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.68),
+          borderRadius: AppRadius.allPill,
+          border: Border.all(
+            color: context.tokens.green.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Icon(icon, size: AppIcon.xl, color: Colors.white),
+      ),
+    );
+  }
+}
+
+/// Circular HUD control. Sits on video, so it keeps its own scrim surface.
+class _HudIconButton extends StatelessWidget {
+  const _HudIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.size = AppIcon.md,
+    this.color,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.35),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: AppSpace.touchTarget,
+            height: AppSpace.touchTarget,
+            child: Icon(icon, size: size, color: color ?? Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HudPill extends StatelessWidget {
+  const _HudPill({required this.label, this.icon, this.onTap});
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.45),
+      borderRadius: AppRadius.allPill,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(icon, size: AppIcon.sm, color: Colors.white),
+                const SizedBox(width: AppSpace.xs),
+              ],
+              Text(
+                label,
+                style: context.text.labelSmall!.copyWith(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Now playing
+// =============================================================================
+
+class _NowPlayingBar extends StatelessWidget {
+  const _NowPlayingBar({required this.lecture, required this.course});
+
+  final Lecture lecture;
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final done = lecture.isCompleted || lecture.watchProgress >= 0.9;
+    final progress = lecture.watchProgress;
+    final active = progress > 0 && !done;
+
+    final statusColor = done ? t.success : (active ? t.green : t.textMuted);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        AppSpace.md,
+        AppSpace.gutter,
+        AppSpace.md,
+      ),
+      decoration: BoxDecoration(
+        color: t.canvas,
+        border: Border(bottom: BorderSide(color: t.hairline)),
+      ),
+      child: Row(
+        children: <Widget>[
+          AppIconTile(
+            icon: done
+                ? Icons.check_circle_rounded
+                : Icons.play_circle_fill_rounded,
+            color: statusColor,
+            size: 40,
+            selected: true,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  lecture.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Lecture ${lecture.number} · ${course.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodySmall,
+                ),
+              ],
             ),
-            Chip(
-              label: Text('★ ${course.rating}'),
-              backgroundColor: AppTheme.accent.withAlpha(40),
-              side: const BorderSide(color: AppTheme.accent, width: 0.5),
-              labelStyle: const TextStyle(fontSize: 11, color: AppTheme.accent),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          if (progress > 0)
+            AppPill(
+              label: done ? 'Done' : '${(progress * 100).round()}%',
+              icon: done ? Icons.verified_rounded : Icons.timelapse_rounded,
+              color: statusColor,
+              dense: true,
+              selected: true,
+            )
+          else
+            AppPill(
+              label: lecture.duration,
+              icon: Icons.schedule_rounded,
+              color: t.textMuted,
+              dense: true,
             ),
-            Chip(
-              label: Text(course.university),
-              backgroundColor: AppTheme.surfaceElevated,
-              side: const BorderSide(color: AppTheme.cardBorder),
-              labelStyle:
-                  const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Playlist row
+// =============================================================================
+
+class _PlaylistRow extends StatelessWidget {
+  const _PlaylistRow({
+    required this.lecture,
+    required this.selected,
+    required this.eqAnimation,
+    required this.onTap,
+  });
+
+  final Lecture lecture;
+  final bool selected;
+  final Animation<double> eqAnimation;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final done = lecture.isCompleted || lecture.watchProgress >= 0.9;
+    final active = lecture.watchProgress > 0 && !done;
+
+    final accent =
+        selected ? context.colors.primary : (done ? t.success : null);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Lecture ${lecture.number}: ${lecture.title}',
+      child: AppSurface(
+        radius: AppRadius.md,
+        margin: const EdgeInsets.only(bottom: AppSpace.sm),
+        selected: selected,
+        glow: active && !selected ? t.green : null,
+        onTap: onTap,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.md,
+          AppSpace.md,
+          AppSpace.md,
+          AppSpace.md,
+        ),
+        child: Row(
+          children: <Widget>[
+            _PlaylistBadge(
+              number: lecture.number,
+              done: done,
+              selected: selected,
+              animation: eqAnimation,
             ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    lecture.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.titleMedium,
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(lecture.duration, style: context.text.monoSmall),
+                      if (lecture.isDownloaded)
+                        AppPill(
+                          label: 'Offline',
+                          icon: Icons.download_done_rounded,
+                          color: t.info,
+                          dense: true,
+                        ),
+                      if (done)
+                        AppPill(
+                          label: 'Watched',
+                          icon: Icons.check_circle_rounded,
+                          color: t.success,
+                          dense: true,
+                          selected: true,
+                        )
+                      else if (active)
+                        AppPill(
+                          label: '${(lecture.watchProgress * 100).round()}%',
+                          icon: Icons.timelapse_rounded,
+                          color: t.green,
+                          dense: true,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            if (selected)
+              _Equaliser(color: accent ?? t.green, animation: eqAnimation)
+            else
+              Icon(
+                done
+                    ? Icons.check_circle_rounded
+                    : Icons.play_circle_outline_rounded,
+                size: AppIcon.md,
+                color: accent ?? t.textMuted,
+              ),
           ],
         ),
-        const SizedBox(height: 14),
-        Text(
-          course.description,
-          style: const TextStyle(
-              fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'Technologies & Skills Covered',
-          style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: course.techStacks.map((tech) {
-            return Chip(
-              label: Text('#$tech'),
-              backgroundColor: AppTheme.surfaceElevated,
-              side: const BorderSide(color: AppTheme.cardBorder),
-              labelStyle:
-                  const TextStyle(fontSize: 11, color: AppTheme.secondary),
-            );
-          }).toList(),
-        ),
-      ],
+      ),
+    );
+  }
+}
+
+class _PlaylistBadge extends StatelessWidget {
+  const _PlaylistBadge({
+    required this.number,
+    required this.done,
+    required this.selected,
+    required this.animation,
+  });
+
+  final int number;
+  final bool done;
+  final bool selected;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    final color = selected ? c.primary : (done ? t.success : t.textMuted);
+
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: AppAlpha.soft),
+        borderRadius: AppRadius.allSm,
+        border: Border.all(color: color.withValues(alpha: AppAlpha.medium)),
+      ),
+      child: Center(
+        child: selected
+            ? _Equaliser(color: color, animation: animation)
+            : done
+                ? Icon(Icons.check_rounded, size: AppIcon.sm, color: color)
+                : Text(
+                    '$number',
+                    style: context.text.labelMedium!.copyWith(color: color),
+                  ),
+      ),
+    );
+  }
+}
+
+class _Equaliser extends StatelessWidget {
+  const _Equaliser({required this.color, required this.animation});
+
+  final Color color;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) => Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          _bar(0.35 + 0.65 * animation.value),
+          const SizedBox(width: 2),
+          _bar(0.8 - 0.5 * animation.value),
+          const SizedBox(width: 2),
+          _bar(0.3 + 0.7 * animation.value),
+        ],
+      ),
     );
   }
 
-  Widget _buildMetaRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
+  Widget _bar(double factor) {
+    return Container(
+      width: 3,
+      height: 16 * factor.clamp(0.2, 1.0),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Resource row
+// =============================================================================
+
+class _ResourceRow extends StatelessWidget {
+  const _ResourceRow({required this.doc, required this.onSave});
+
+  final CourseDocument doc;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final color = DocPalette.colorFor(doc.type);
+
+    return AppSurface(
+      radius: AppRadius.md,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.md,
+        AppSpace.md,
+        AppSpace.xs,
+        AppSpace.md,
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-          const SizedBox(height: 2),
-          SelectableText(
-            value,
-            style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textPrimary,
-                fontFamily: 'monospace'),
+        children: <Widget>[
+          AppIconTile(
+              icon: DocPalette.iconFor(doc.type), color: color, size: 44),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  doc.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleMedium,
+                ),
+                if (doc.description.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    doc.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: AppSpace.sm),
+                Row(
+                  children: <Widget>[
+                    AppPill(
+                      label: DocPalette.labelFor(doc.type),
+                      color: color,
+                      dense: true,
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Flexible(
+                      child: Text(
+                        doc.sizeFormatted,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.monoSmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+          IconButton(
+            onPressed: onSave,
+            tooltip: 'Save resource offline',
+            visualDensity: VisualDensity.compact,
+            iconSize: AppIcon.md,
+            icon: Icon(Icons.download_for_offline_outlined, color: t.green),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Info pieces
+// =============================================================================
+
+class _SpecRow extends StatelessWidget {
+  const _SpecRow({
+    required this.label,
+    required this.value,
+    this.showDivider = true,
+  });
+
+  final String label;
+  final String value;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: Text(label, style: context.text.bodySmall)),
+              const SizedBox(width: AppSpace.md),
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: context.text.mono.copyWith(color: t.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider) Divider(height: 1, color: t.hairline),
+      ],
+    );
+  }
+}
+
+/// Shared bottom-sheet row: icon, label, check when selected.
+class _PickerRow extends StatelessWidget {
+  const _PickerRow({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return AppSurface.inset(
+      radius: AppRadius.md,
+      margin: const EdgeInsets.only(bottom: AppSpace.sm),
+      color: selected
+          ? c.primary.withValues(alpha: AppAlpha.wash)
+          : context.tokens.surface,
+      selected: selected,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.md,
+        vertical: AppSpace.md,
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            icon,
+            size: AppIcon.sm,
+            color: selected ? c.primary : context.tokens.textMuted,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Text(
+              label,
+              style: context.text.bodyLarge!.copyWith(
+                color: selected ? c.primary : null,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+          if (selected)
+            Icon(Icons.check_rounded, size: AppIcon.sm, color: c.primary),
         ],
       ),
     );

@@ -1,14 +1,18 @@
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/course.dart';
 import '../providers/course_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
+import '../theme/tech_palette.dart';
+import '../widgets/aligned_logo_view.dart';
+import '../widgets/app_components.dart';
+import '../widgets/course_card.dart';
 import 'course_detail_screen.dart';
 import 'video_player_screen.dart';
-import '../widgets/aligned_logo_view.dart';
 import '../widgets/sources_credits_dialog.dart';
 
+/// Catalogue entry point: search, stack/category filters, and the course grid.
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -17,8 +21,8 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  late ScrollController _scrollController;
-  late TextEditingController _searchController;
+  late final ScrollController _scrollController;
+  late final TextEditingController _searchController;
 
   @override
   void initState() {
@@ -28,9 +32,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.hasClients &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 300) {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 320) {
       final provider = context.read<CourseProvider>();
       if (!provider.isLoadingMore && provider.hasMoreCourses) {
         provider.loadMoreCourses();
@@ -40,403 +44,260 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _resetFilters(CourseProvider provider) {
+    _searchController.clear();
+    provider.resetFilters();
+    FocusScope.of(context).unfocus();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: const AlignedLogoView(
-          height: 32,
-          fit: BoxFit.contain,
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.cardBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.secondary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.secondary,
-                        blurRadius: 6,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  '18 LIVE TRACKS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.verified_user_outlined, size: 20, color: AppTheme.primaryGlow),
-            tooltip: 'Credits & Verified Sources',
-            onPressed: () => SourcesCreditsDialog.show(context),
-          ),
-          const SizedBox(width: 8),
-        ],
+      backgroundColor: context.tokens.canvas,
+      appBar: _ExploreAppBar(
+        liveTrackCount: context.watch<CourseProvider>().allCourses.length,
       ),
       body: Consumer<CourseProvider>(
         builder: (context, provider, _) {
           final courses = provider.filteredCourses;
-          final lastCourse = provider.lastActiveCourse;
+          final hasActiveFilters = provider.selectedTechStack != null ||
+              provider.selectedCategory != provider.categories.first ||
+              provider.searchQuery.isNotEmpty;
 
           return RefreshIndicator(
-            color: AppTheme.primaryGlow,
-            backgroundColor: AppTheme.surface,
+            color: context.colors.primary,
+            backgroundColor: context.tokens.surfaceRaised,
+            displacement: 40,
             onRefresh: () => provider.loadCourses(),
             child: CustomScrollView(
               controller: _scrollController,
-              slivers: [
-                // SEARCH BAR WITH INSTANT CLEAR
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: <Widget>[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                    child: TextField(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      AppSpace.sm,
+                      AppSpace.gutter,
+                      AppSpace.lg,
+                    ),
+                    child: _SearchField(
                       controller: _searchController,
-                      style: const TextStyle(fontSize: 14, color: Colors.white),
+                      hasQuery: provider.searchQuery.isNotEmpty,
                       onChanged: provider.setSearchQuery,
-                      decoration: InputDecoration(
-                        hintText: 'Search Python, FastAPI, React, Docker, Rust, Go...',
-                        hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.primaryGlow, size: 20),
-                        suffixIcon: provider.searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18, color: AppTheme.textMuted),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  provider.setSearchQuery('');
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: AppTheme.surface,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppTheme.cardBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppTheme.cardBorder),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppTheme.primaryGlow, width: 1.5),
-                        ),
-                      ),
+                      onClear: () => _resetFilters(provider),
                     ),
                   ),
                 ),
 
-                // QUICK RESUME HERO BANNER (if user has active course and no active search)
-                if (provider.searchQuery.isEmpty &&
-                    provider.selectedTechStack == null &&
-                    lastCourse != null &&
-                    lastCourse.lectures.isNotEmpty &&
-                    lastCourse.overallProgress > 0)
-                  SliverToBoxAdapter(
-                    child: _buildQuickResumeCard(context, lastCourse),
-                  )
-                else if (provider.searchQuery.isEmpty && provider.selectedTechStack == null)
-                  SliverToBoxAdapter(
-                    child: _buildExecutiveSpotlightBanner(context),
-                  ),
-
-                // POPULAR TECH STACKS PILLS MATRIX
+                // ---- Featured hero: resume, or the academy banner -------------
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Featured Tech Stacks',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondary,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        if (provider.selectedTechStack != null ||
-                            provider.selectedCategory != 'All Technologies' ||
-                            provider.searchQuery.isNotEmpty)
-                          GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              provider.resetFilters();
-                            },
-                            child: const Text(
-                              'Reset All',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.secondary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: _HeroSlot(
+                    isFiltered: provider.searchQuery.isNotEmpty ||
+                        provider.selectedTechStack != null,
+                    resumeCourse: provider.lastActiveCourse,
+                    onResetFilters: () => _resetFilters(provider),
                   ),
                 ),
 
-                // Tech stack chips carousel
+                // ---- Featured tech stacks ------------------------------------
+                SliverToBoxAdapter(
+                  child: SectionHeader(
+                    title: 'Featured Tech Stacks',
+                    subtitle: 'Filter the catalogue by discipline',
+                    actionLabel: hasActiveFilters ? 'Reset' : null,
+                    onAction:
+                        hasActiveFilters ? () => _resetFilters(provider) : null,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      AppSpace.xl,
+                      AppSpace.gutter,
+                      AppSpace.md,
+                    ),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: SizedBox(
                     height: 44,
-                    child: ListView.builder(
+                    child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpace.gutter,
+                      ),
+                      physics: const BouncingScrollPhysics(),
                       itemCount: provider.popularTechStacks.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: AppSpace.sm),
                       itemBuilder: (context, index) {
                         final tech = provider.popularTechStacks[index];
-                        final isSelected = provider.selectedTechStack == tech;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(AppTheme.getTechEmoji(tech), style: const TextStyle(fontSize: 12)),
-                                const SizedBox(width: 5),
-                                Text(tech),
-                              ],
-                            ),
-                            selected: isSelected,
-                            onSelected: (_) => provider.setTechStack(tech),
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              color: isSelected ? Colors.white : AppTheme.textPrimary,
-                            ),
-                            selectedColor: AppTheme.getTechColor(tech).withAlpha(180),
-                            backgroundColor: AppTheme.surface,
-                            checkmarkColor: Colors.white,
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.getTechColor(tech) : AppTheme.cardBorder,
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          ),
+                        final selected = provider.selectedTechStack == tech;
+                        final color = TechPalette.colorFor(tech);
+
+                        return _TechChip(
+                          tech: tech,
+                          color: color,
+                          selected: selected,
+                          onTap: () {
+                            provider.setTechStack(
+                              selected ? null : tech,
+                            );
+                          },
                         );
                       },
                     ),
                   ),
                 ),
 
-                // DOMAIN CATEGORY TABS
+                // ---- Category tabs -------------------------------------------
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 48,
-                    child: ListView.builder(
+                    height: 52,
+                    child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.gutter,
+                        AppSpace.lg,
+                        AppSpace.gutter,
+                        0,
+                      ),
+                      physics: const BouncingScrollPhysics(),
                       itemCount: provider.categories.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: AppSpace.sm),
                       itemBuilder: (context, index) {
                         final cat = provider.categories[index];
-                        final isSelected = cat == provider.selectedCategory;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(cat),
-                            selected: isSelected,
-                            onSelected: (_) => provider.setCategory(cat),
-                            labelStyle: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? Colors.white : AppTheme.textSecondary,
-                            ),
-                            selectedColor: AppTheme.surfaceElevated,
-                            backgroundColor: AppTheme.surface,
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.secondary : AppTheme.cardBorder,
-                            ),
-                          ),
+                        return _CategoryChip(
+                          label: cat,
+                          selected: cat == provider.selectedCategory,
+                          onTap: () => provider.setCategory(cat),
                         );
                       },
                     ),
                   ),
                 ),
 
-                // ACTIVE SEARCH / FILTER STATUS ROW
-                if (provider.selectedTechStack != null || provider.searchQuery.isNotEmpty)
+                // ---- Active filter summary -----------------------------------
+                if (hasActiveFilters)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                      child: Row(
-                        children: [
-                          if (provider.searchQuery.isNotEmpty) ...[
-                            Text(
-                              'Search: "${provider.searchQuery}"',
-                              style: const TextStyle(
-                                  color: AppTheme.secondary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          if (provider.selectedTechStack != null)
-                            Chip(
-                              label: Text(provider.selectedTechStack!),
-                              onDeleted: () => provider.setTechStack(null),
-                              deleteIconColor: Colors.white,
-                              backgroundColor: AppTheme.primary.withAlpha(70),
-                              side: const BorderSide(color: AppTheme.primary),
-                              labelStyle: const TextStyle(
-                                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                        ],
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpace.gutter,
+                        AppSpace.md,
+                        AppSpace.gutter,
+                        0,
+                      ),
+                      child: _ActiveFilterBar(
+                        query: provider.searchQuery,
+                        tech: provider.selectedTechStack,
+                        category: provider.selectedCategory,
+                        baseCategory: provider.categories.first,
+                        onClearSearch: () {
+                          _searchController.clear();
+                          provider.setSearchQuery('');
+                        },
+                        onClearTech: () => provider.setTechStack(null),
                       ),
                     ),
                   ),
 
-                // SECTION HEADER
+                // ---- Results header ------------------------------------------
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      AppSpace.xl,
+                      AppSpace.gutter,
+                      AppSpace.md,
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${courses.length} Available Curricula',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            provider.isLoading
+                                ? 'Loading catalogue…'
+                                : '${courses.length} '
+                                    '${courses.length == 1 ? 'curriculum' : 'curricula'}',
+                            style: context.text.headlineSmall,
                           ),
                         ),
-                        Text(
-                          provider.selectedCategory,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                        ),
+                        if (!provider.isLoading)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: AppPill(
+                              label: provider.selectedCategory,
+                              color: context.tokens.textMuted,
+                              dense: true,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
 
-                // COURSE LIST
+                // ---- Body ------------------------------------------------------
                 if (provider.isLoading)
-                  const SliverFillRemaining(
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppTheme.primaryGlow),
-                    ),
-                  )
+                  const SliverToBoxAdapter(child: _LoadingGrid())
                 else if (courses.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search_off, size: 54, color: AppTheme.textMuted.withAlpha(120)),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'No tech courses match your search.',
-                            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Try searching for Python, React, Docker, or reset filters.',
-                            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                          ),
-                          const SizedBox(height: 14),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: () {
-                              _searchController.clear();
-                              provider.resetFilters();
-                            },
-                            child: const Text('Reset All Filters'),
-                          ),
-                        ],
-                      ),
+                  SliverToBoxAdapter(
+                    child: AppEmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'No courses match',
+                      message:
+                          'Try a different technology — Python, React, Docker, Rust or Go — or clear your filters.',
+                      actionLabel: 'Reset all filters',
+                      onAction: () => _resetFilters(provider),
                     ),
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      0,
+                      AppSpace.gutter,
+                      AppSpace.lg,
+                    ),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final course = courses[index];
-                          return _buildProMaxCourseCard(context, course, provider);
-                        },
+                        (context, index) => CourseCard(
+                          course: courses[index],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  CourseDetailScreen(course: courses[index]),
+                            ),
+                          ),
+                          onBookmark: () =>
+                              provider.toggleBookmark(courses[index].id),
+                        ),
                         childCount: courses.length,
                       ),
                     ),
                   ),
 
-                // INFINITE SCROLL LOADING INDICATOR AT BOTTOM
-                if (provider.isLoadingMore)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.secondary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Loading additional verified courses...',
-                              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else if (!provider.hasMoreCourses && courses.isNotEmpty)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          '— You have reached the end of the catalog —',
-                          style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
-                        ),
-                      ),
-                    ),
+                // ---- Pagination footer ---------------------------------------
+                SliverToBoxAdapter(
+                  child: _ListFooter(
+                    isLoadingMore: provider.isLoadingMore,
+                    hasMore: provider.hasMoreCourses,
+                    isEmpty: courses.isEmpty,
                   ),
+                ),
+
+                // Clear the floating dock.
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpace.dockClearance),
+                ),
               ],
             ),
           );
@@ -444,644 +305,591 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
     );
   }
+}
 
-  Widget _buildExecutiveSpotlightBanner(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F2642),
-            Color(0xFF0E1A2D),
-            Color(0xFF080E18),
+// =============================================================================
+// App bar
+// =============================================================================
+
+class _ExploreAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _ExploreAppBar({required this.liveTrackCount});
+
+  final int liveTrackCount;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return AppBar(
+      backgroundColor: t.canvas,
+      toolbarHeight: 60,
+      titleSpacing: AppSpace.gutter,
+      title: const AlignedLogoView(height: 28, fit: BoxFit.contain),
+      actions: <Widget>[
+        Center(
+          child: AppPill(
+            label: '$liveTrackCount TRACKS',
+            icon: Icons.circle,
+            color: t.green,
+            dense: true,
+          ),
+        ),
+        const SizedBox(width: AppSpace.sm),
+        AppIconButton(
+          icon: Icons.verified_user_rounded,
+          tooltip: 'Credits & verified sources',
+          onTap: () => SourcesCreditsDialog.show(context),
+          color: context.colors.primary,
+          size: 42,
+        ),
+        const SizedBox(width: AppSpace.gutter),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: t.hairline),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Search
+// =============================================================================
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.controller,
+    required this.hasQuery,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final bool hasQuery;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      textField: true,
+      label: 'Search courses by technology',
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: context.text.bodyLarge,
+        decoration: InputDecoration(
+          hintText: 'Search Python, FastAPI, React, Docker, Rust, Go…',
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: AppIcon.md,
+            color: context.colors.primary,
+          ),
+          suffixIcon: hasQuery
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded, size: AppIcon.sm),
+                  tooltip: 'Clear search',
+                  onPressed: onClear,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Hero
+// =============================================================================
+
+class _HeroSlot extends StatelessWidget {
+  const _HeroSlot({
+    required this.isFiltered,
+    required this.resumeCourse,
+    required this.onResetFilters,
+  });
+
+  final bool isFiltered;
+  final Course? resumeCourse;
+  final VoidCallback onResetFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isFiltered) return const SizedBox.shrink();
+
+    final course = resumeCourse;
+    if (course != null &&
+        course.lectures.isNotEmpty &&
+        course.overallProgress > 0) {
+      return _ResumeCard(course: course);
+    }
+
+    return const _AcademyBanner();
+  }
+}
+
+class _AcademyBanner extends StatelessWidget {
+  const _AcademyBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+      child: AppSurface(
+        radius: AppRadius.xl,
+        glow: c.primary,
+        border: BorderSide(color: c.primary.withValues(alpha: 0.30)),
+        gradient: LinearGradient(
+          colors: <Color>[
+            Color.alphaBlend(c.primary.withValues(alpha: 0.16), t.surface),
+            t.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: AppTheme.primaryGlow.withAlpha(70),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withAlpha(40),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondary.withAlpha(35),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.8),
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                AppPill(
+                  label: 'ALIGNED ENTERPRISE ACADEMY',
+                  icon: Icons.circle,
+                  color: t.green,
+                  dense: true,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.secondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'ALIGNED ENTERPRISE ACADEMY',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                        color: AppTheme.secondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.auto_awesome, color: AppTheme.accent, size: 18),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Production-Grade Engineering Upskilling',
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.4,
-              height: 1.25,
+                const Spacer(),
+                Icon(Icons.auto_awesome_rounded,
+                    color: t.accent, size: AppIcon.sm),
+              ],
             ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Continuous technical mastery across Cloud, Distributed Microservices, AI & Systems Programming from MIT & top open institutions.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.45),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _buildSpotlightPill('18 Full Tracks', Icons.layers_outlined, AppTheme.primaryGlow),
-              const SizedBox(width: 8),
-              _buildSpotlightPill('1,200+ HD Lectures', Icons.ondemand_video_outlined, AppTheme.secondary),
-              const SizedBox(width: 8),
-              _buildSpotlightPill('100% Free OER', Icons.verified_outlined, AppTheme.accent),
-            ],
-          ),
-        ],
+            const SizedBox(height: AppSpace.lg),
+            Text(
+              'Production-grade engineering upskilling',
+              style: context.text.headlineSmall,
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              'Continuous technical mastery across cloud, distributed '
+              'microservices, AI and systems programming — from MIT and other '
+              'leading open institutions.',
+              style: context.text.bodyMedium,
+            ),
+            const SizedBox(height: AppSpace.lg),
+            const Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: <Widget>[
+                _StatChip(label: '18 tracks', icon: Icons.layers_rounded),
+                _StatChip(
+                    label: '1,200+ HD lectures',
+                    icon: Icons.ondemand_video_rounded),
+                _StatChip(label: '100% free OER', icon: Icons.verified_rounded),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildSpotlightPill(String label, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(14),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withAlpha(18), width: 0.6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
-          ),
-        ],
-      ),
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: AppIcon.xs, color: t.textMuted),
+        const SizedBox(width: AppSpace.xs),
+        Text(label, style: context.text.labelMedium),
+      ],
     );
   }
+}
 
-  Widget _buildQuickResumeCard(BuildContext context, Course course) {
-    if (course.lectures.isEmpty) return const SizedBox.shrink();
-    final activeLecture = course.lectures.firstWhere(
+class _ResumeCard extends StatelessWidget {
+  const _ResumeCard({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    final lecture = course.lectures.firstWhere(
       (l) => l.watchProgress > 0 && l.watchProgress < 0.99,
       orElse: () => course.lectures.first,
     );
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primary.withAlpha(90),
-            AppTheme.secondary.withAlpha(40),
-            AppTheme.surfaceElevated,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+      child: AppSurface(
+        radius: AppRadius.xl,
+        selected: true,
+        glow: c.primary,
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                AppPill(
+                  label: 'CONTINUE LEARNING',
+                  icon: Icons.play_circle_fill_rounded,
+                  color: t.green,
+                  dense: true,
+                ),
+                const Spacer(),
+                Text(
+                  '${(course.overallProgress * 100).round()}% done',
+                  style: context.text.labelMedium!.copyWith(color: t.green),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.md),
+            Text(
+              course.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.titleLarge,
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              lecture.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.bodySmall,
+            ),
+            const SizedBox(height: AppSpace.lg),
+            AppProgressBar(value: course.overallProgress, color: t.green),
+            const SizedBox(height: AppSpace.lg),
+            AppButton(
+              label: 'Resume lecture',
+              icon: Icons.play_arrow_rounded,
+              expand: false,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => VideoPlayerScreen(
+                    course: course,
+                    initialLecture: lecture,
+                  ),
+                ),
+              ),
+            ),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.primaryGlow.withAlpha(120), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withAlpha(60),
-            blurRadius: 18,
-            offset: const Offset(0, 4),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Filter chips
+// =============================================================================
+
+class _TechChip extends StatelessWidget {
+  const _TechChip({
+    required this.tech,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String tech;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Filter by $tech',
+      child: Material(
+        color: selected
+            ? color.withValues(alpha: AppAlpha.strong)
+            : t.surfaceRaised,
+        borderRadius: AppRadius.allPill,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            curve: AppMotion.emphasized,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.allPill,
+              border: Border.all(
+                color: selected ? color : t.hairline,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  TechPalette.iconFor(tech),
+                  size: AppIcon.sm,
+                  color: selected ? color : t.textMuted,
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Text(
+                  tech,
+                  style: context.text.labelMedium!.copyWith(
+                    color: selected ? t.textPrimary : t.textSecondary,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = context.tokens;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? c.primary : Colors.transparent,
+        borderRadius: AppRadius.allPill,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.lg,
+              vertical: AppSpace.sm + 2,
+            ),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.allPill,
+              border: Border.all(
+                color: selected ? c.primary : t.hairline,
+              ),
+            ),
+            child: Text(
+              label,
+              style: context.text.labelMedium!.copyWith(
+                color: selected ? t.textOnBrand : t.textSecondary,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveFilterBar extends StatelessWidget {
+  const _ActiveFilterBar({
+    required this.query,
+    required this.tech,
+    required this.category,
+    required this.baseCategory,
+    required this.onClearSearch,
+    required this.onClearTech,
+  });
+
+  final String query;
+  final String? tech;
+  final String category;
+  final String baseCategory;
+  final VoidCallback onClearSearch;
+  final VoidCallback onClearTech;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: context.colors.primary.withValues(alpha: AppAlpha.wash),
+        borderRadius: AppRadius.allMd,
+        border: Border.all(
+          color: context.colors.primary.withValues(alpha: AppAlpha.soft),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.filter_alt_rounded,
+              size: AppIcon.sm, color: context.colors.primary),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                if (query.isNotEmpty)
+                  AppPill(
+                    label: '“$query”',
+                    icon: Icons.search_rounded,
+                    color: context.colors.primary,
+                    dense: true,
+                    selected: true,
+                    onTap: onClearSearch,
+                  ),
+                if (tech != null)
+                  AppPill(
+                    label: tech!,
+                    icon: TechPalette.iconFor(tech!),
+                    color: TechPalette.colorFor(tech!),
+                    dense: true,
+                    selected: true,
+                    onTap: onClearTech,
+                  ),
+                if (category != baseCategory)
+                  Text(
+                    category,
+                    style:
+                        context.text.labelSmall!.copyWith(color: t.textMuted),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// =============================================================================
+// States
+// =============================================================================
+
+class _LoadingGrid extends StatelessWidget {
+  const _LoadingGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.play_circle_fill, size: 16, color: AppTheme.secondary),
-                  SizedBox(width: 6),
-                  Text(
-                    'CONTINUE LEARNING',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.secondary,
-                      letterSpacing: 1.0,
-                    ),
+        children: <Widget>[
+          for (var i = 0; i < 3; i++)
+            AppSurface(
+              radius: AppRadius.lg,
+              margin: const EdgeInsets.only(bottom: AppSpace.lg),
+              padding: const EdgeInsets.all(AppSpace.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const AppSkeletonBox(height: 120, radius: AppRadius.md),
+                  const SizedBox(height: AppSpace.lg),
+                  const AppSkeletonBox(height: 18, width: 220),
+                  const SizedBox(height: AppSpace.md),
+                  const AppSkeletonBox(height: 12, width: 150),
+                  const SizedBox(height: AppSpace.lg),
+                  Row(
+                    children: <Widget>[
+                      AppSkeletonBox(
+                          height: 22, width: 64, radius: AppRadius.pill),
+                      const SizedBox(width: AppSpace.sm),
+                      AppSkeletonBox(
+                          height: 22, width: 88, radius: AppRadius.pill),
+                    ],
                   ),
                 ],
               ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.isEmpty,
+  });
+
+  final bool isLoadingMore;
+  final bool hasMore;
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isEmpty) return const SizedBox(height: AppSpace.xl);
+
+    if (isLoadingMore) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: AppSpace.md),
               Text(
-                '${(course.overallProgress * 100).toInt()}% Done',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            course.title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            activeLecture.title,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: course.overallProgress,
-              backgroundColor: Colors.white12,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondary),
-              minHeight: 5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-              icon: const Icon(Icons.play_arrow, size: 16),
-              label: const Text('Resume Lecture', style: TextStyle(fontSize: 12)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => VideoPlayerScreen(
-                      course: course,
-                      initialLecture: activeLecture,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProMaxCourseCard(
-      BuildContext context, Course course, CourseProvider provider) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.cardBorder, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(70),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CourseDetailScreen(course: course),
-              ),
-            );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 16:9 Banner Thumbnail with Gradient & Overlays
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: SizedBox(
-                  height: 155,
-                  width: double.infinity,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Thumbnail Image or Fallback
-                      if (course.thumbnailUrl.isNotEmpty)
-                        Image.network(
-                          course.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildFallbackThumbnail(course),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: AppTheme.surfaceElevated,
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.primaryGlow,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      else
-                        _buildFallbackThumbnail(course),
-
-                      // Subtle Vignette Gradient
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withAlpha(120),
-                              Colors.transparent,
-                              Colors.black.withAlpha(140),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Overlaid Top Meta (Category, Badge & Bookmark)
-                      Positioned(
-                        top: 10,
-                        left: 12,
-                        right: 12,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary.withAlpha(220),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    course.category,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withAlpha(160),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.accent.withAlpha(140), width: 0.8),
-                                  ),
-                                  child: Text(
-                                    course.badge,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.accent,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(140),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                iconSize: 18,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(),
-                                icon: Icon(
-                                  course.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                  color: course.isBookmarked ? AppTheme.accent : Colors.white70,
-                                ),
-                                onPressed: () => provider.toggleBookmark(course.id),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Overlaid Bottom Meta (Lectures & Docs count + Seeders)
-                      Positioned(
-                        bottom: 8,
-                        left: 12,
-                        right: 12,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary.withAlpha(70),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: AppTheme.primaryGlow.withAlpha(100), width: 0.6),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.video_library, size: 11, color: AppTheme.primaryGlow),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        course.lectures.isNotEmpty ? '${course.lectures.length} Videos' : 'Full Syllabus',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondary.withAlpha(60),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.6),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.description_outlined, size: 11, color: AppTheme.secondary),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        course.documents.isNotEmpty ? '${course.documents.length} Docs' : 'Tech Labs',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(150),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.secondary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  const Text(
-                                    'Verified Track',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.secondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Card Body Details
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title & Code
-                    Text(
-                      course.title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${course.university} • ${course.author}',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Tech Stacks Pills Row
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: course.techStacks.take(4).map((tech) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceElevated,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: AppTheme.cardBorder, width: 0.8),
-                          ),
-                          child: Text(
-                            '#$tech',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryGlow,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Divider
-                    const Divider(color: AppTheme.cardBorder, height: 1),
-                    const SizedBox(height: 10),
-
-                    // Bottom Metrics Info
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.star, size: 14, color: AppTheme.accent),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${course.rating}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Icon(Icons.people_outline, size: 13, color: AppTheme.textMuted),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${course.enrolledCount}',
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            ),
-                            const SizedBox(width: 10),
-                            const Icon(Icons.timer_outlined, size: 13, color: AppTheme.textMuted),
-                            const SizedBox(width: 4),
-                            Text(
-                              course.estimatedHours,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1B77BC), Color(0xFF0284C7)],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primary.withAlpha(90),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Explore',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(width: 4),
-                              Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.white),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                'Loading more verified courses…',
+                style: context.text.bodySmall,
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildFallbackThumbnail(Course course) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primary.withAlpha(140),
-            AppTheme.surfaceElevated,
-            AppTheme.secondary.withAlpha(90),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    if (!hasMore) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.xxl),
+        child: Center(
+          child: Text(
+            'You have reached the end of the catalogue',
+            style: context.text.bodySmall,
+          ),
         ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/aligned_icon.png',
-              height: 40,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.play_circle_fill,
-                size: 40,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              course.code,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+    }
+
+    return const SizedBox(height: AppSpace.lg);
   }
 }

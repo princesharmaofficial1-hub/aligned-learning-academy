@@ -78,7 +78,8 @@ class Course {
 
   double get overallProgress {
     if (lectures.isEmpty) return 0.0;
-    final total = lectures.fold<double>(0.0, (sum, item) => sum + item.watchProgress);
+    final total =
+        lectures.fold<double>(0.0, (sum, item) => sum + item.watchProgress);
     return total / lectures.length;
   }
 
@@ -131,65 +132,66 @@ class Course {
     );
   }
 
-
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'code': code,
-    'university': university,
-    'category': category,
-    'description': description,
-    'infoHash': infoHash,
-    'sizeFormatted': sizeFormatted,
-    'webSeedUrl': webSeedUrl,
-    'archiveIdentifier': archiveIdentifier,
-    'seeders': seeders,
-    'lectures': lectures.map((l) => l.toJson()).toList(),
-    'documents': documents.map((d) => d.toJson()).toList(),
-    'thumbnailUrl': thumbnailUrl,
-    'isBookmarked': isBookmarked,
-    'lastWatchedLectureId': lastWatchedLectureId,
-    'techStacks': techStacks,
-    'level': level,
-    'rating': rating,
-    'enrolledCount': enrolledCount,
-    'estimatedHours': estimatedHours,
-    'author': author,
-    'badge': badge,
-    'isCurriculumLoaded': isCurriculumLoaded,
-  };
+        'id': id,
+        'title': title,
+        'code': code,
+        'university': university,
+        'category': category,
+        'description': description,
+        'infoHash': infoHash,
+        'sizeFormatted': sizeFormatted,
+        'webSeedUrl': webSeedUrl,
+        'archiveIdentifier': archiveIdentifier,
+        'seeders': seeders,
+        'lectures': lectures.map((l) => l.toJson()).toList(),
+        'documents': documents.map((d) => d.toJson()).toList(),
+        'thumbnailUrl': thumbnailUrl,
+        'isBookmarked': isBookmarked,
+        'lastWatchedLectureId': lastWatchedLectureId,
+        'techStacks': techStacks,
+        'level': level,
+        'rating': rating,
+        'enrolledCount': enrolledCount,
+        'estimatedHours': estimatedHours,
+        'author': author,
+        'badge': badge,
+        'isCurriculumLoaded': isCurriculumLoaded,
+      };
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    code: json['code'] as String? ?? '',
-    university: json['university'] as String? ?? 'Open University',
-    category: json['category'] as String? ?? 'Computer Science',
-    description: json['description'] as String? ?? '',
-    infoHash: json['infoHash'] as String,
-    sizeFormatted: json['sizeFormatted'] as String? ?? 'Unknown',
-    webSeedUrl: json['webSeedUrl'] as String? ?? '',
-    archiveIdentifier: json['archiveIdentifier'] as String?,
-    seeders: json['seeders'] as int? ?? 12,
-    lectures: (json['lectures'] as List<dynamic>?)
-            ?.map((e) => Lecture.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    documents: (json['documents'] as List<dynamic>?)
-            ?.map((e) => CourseDocument.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [],
-    thumbnailUrl: json['thumbnailUrl'] as String? ?? '',
-    isBookmarked: json['isBookmarked'] as bool? ?? false,
-    lastWatchedLectureId: json['lastWatchedLectureId'] as String?,
-    techStacks: (json['techStacks'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
-        const ['Software Engineering'],
-    level: json['level'] as String? ?? 'Intermediate',
-    rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
-    enrolledCount: json['enrolledCount'] as int? ?? 12500,
-    estimatedHours: json['estimatedHours'] as String? ?? '10 hrs',
-    author: json['author'] as String? ?? 'Academic Faculty',
-    badge: json['badge'] as String? ?? 'Trending',
-    isCurriculumLoaded: json['isCurriculumLoaded'] as bool? ?? false,
-  );
+        id: json['id'] as String,
+        title: json['title'] as String,
+        code: json['code'] as String? ?? '',
+        university: json['university'] as String? ?? 'Open University',
+        category: json['category'] as String? ?? 'Computer Science',
+        description: json['description'] as String? ?? '',
+        infoHash: json['infoHash'] as String,
+        sizeFormatted: json['sizeFormatted'] as String? ?? 'Unknown',
+        webSeedUrl: json['webSeedUrl'] as String? ?? '',
+        archiveIdentifier: json['archiveIdentifier'] as String?,
+        seeders: json['seeders'] as int? ?? 12,
+        lectures: (json['lectures'] as List<dynamic>?)
+                ?.map((e) => Lecture.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        documents: (json['documents'] as List<dynamic>?)
+                ?.map((e) => CourseDocument.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        thumbnailUrl: json['thumbnailUrl'] as String? ?? '',
+        isBookmarked: json['isBookmarked'] as bool? ?? false,
+        lastWatchedLectureId: json['lastWatchedLectureId'] as String?,
+        techStacks: (json['techStacks'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const ['Software Engineering'],
+        level: json['level'] as String? ?? 'Intermediate',
+        rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
+        enrolledCount: json['enrolledCount'] as int? ?? 12500,
+        estimatedHours: json['estimatedHours'] as String? ?? '10 hrs',
+        author: json['author'] as String? ?? 'Academic Faculty',
+        badge: json['badge'] as String? ?? 'Trending',
+        isCurriculumLoaded: json['isCurriculumLoaded'] as bool? ?? false,
+      );
 }

@@ -24,7 +24,8 @@ class Lecture {
     this.isDownloaded = false,
     this.watchProgress = 0.0,
     this.isCompleted = false,
-    this.summary = 'Comprehensive technical deep-dive and production walkthrough.',
+    this.summary =
+        'Comprehensive technical deep-dive and production walkthrough.',
   });
 
   Lecture copyWith({
@@ -55,34 +56,35 @@ class Lecture {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'courseId': courseId,
-    'number': number,
-    'title': title,
-    'section': section,
-    'videoUrl': videoUrl,
-    'duration': duration,
-    'localFilePath': localFilePath,
-    'isDownloaded': isDownloaded,
-    'watchProgress': watchProgress,
-    'isCompleted': isCompleted,
-    'summary': summary,
-  };
+        'id': id,
+        'courseId': courseId,
+        'number': number,
+        'title': title,
+        'section': section,
+        'videoUrl': videoUrl,
+        'duration': duration,
+        'localFilePath': localFilePath,
+        'isDownloaded': isDownloaded,
+        'watchProgress': watchProgress,
+        'isCompleted': isCompleted,
+        'summary': summary,
+      };
 
   factory Lecture.fromJson(Map<String, dynamic> json) => Lecture(
-    id: json['id'] as String,
-    courseId: json['courseId'] as String,
-    number: json['number'] as int? ?? 1,
-    title: json['title'] as String,
-    section: json['section'] as String? ?? 'General Curriculum',
-    videoUrl: json['videoUrl'] as String,
-    duration: json['duration'] as String? ?? '45:00',
-    localFilePath: json['localFilePath'] as String?,
-    isDownloaded: json['isDownloaded'] as bool? ?? false,
-    watchProgress: (json['watchProgress'] as num?)?.toDouble() ?? 0.0,
-    isCompleted: json['isCompleted'] as bool? ?? false,
-    summary: json['summary'] as String? ?? 'Comprehensive technical deep-dive and production walkthrough.',
-  );
+        id: json['id'] as String,
+        courseId: json['courseId'] as String,
+        number: json['number'] as int? ?? 1,
+        title: json['title'] as String,
+        section: json['section'] as String? ?? 'General Curriculum',
+        videoUrl: json['videoUrl'] as String,
+        duration: json['duration'] as String? ?? '45:00',
+        localFilePath: json['localFilePath'] as String?,
+        isDownloaded: json['isDownloaded'] as bool? ?? false,
+        watchProgress: (json['watchProgress'] as num?)?.toDouble() ?? 0.0,
+        isCompleted: json['isCompleted'] as bool? ?? false,
+        summary: json['summary'] as String? ??
+            'Comprehensive technical deep-dive and production walkthrough.',
+      );
 }
 
 class LectureNote {
@@ -111,22 +113,22 @@ class LectureNote {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'courseId': courseId,
-    'lectureId': lectureId,
-    'lectureTitle': lectureTitle,
-    'timestampSeconds': timestampSeconds,
-    'content': content,
-    'createdAt': createdAt.toIso8601String(),
-  };
+        'id': id,
+        'courseId': courseId,
+        'lectureId': lectureId,
+        'lectureTitle': lectureTitle,
+        'timestampSeconds': timestampSeconds,
+        'content': content,
+        'createdAt': createdAt.toIso8601String(),
+      };
 
   factory LectureNote.fromJson(Map<String, dynamic> json) => LectureNote(
-    id: json['id'] as String,
-    courseId: json['courseId'] as String,
-    lectureId: json['lectureId'] as String,
-    lectureTitle: json['lectureTitle'] as String,
-    timestampSeconds: json['timestampSeconds'] as int,
-    content: json['content'] as String,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-  );
+        id: json['id'] as String,
+        courseId: json['courseId'] as String,
+        lectureId: json['lectureId'] as String,
+        lectureTitle: json['lectureTitle'] as String,
+        timestampSeconds: json['timestampSeconds'] as int,
+        content: json['content'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
 }

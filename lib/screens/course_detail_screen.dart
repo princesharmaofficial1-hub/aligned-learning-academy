@@ -1,14 +1,19 @@
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../models/course.dart';
 import '../models/course_document.dart';
 import '../models/lecture.dart';
 import '../providers/course_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_typography.dart';
+import '../theme/design_tokens.dart';
+import '../theme/tech_palette.dart';
+import '../widgets/app_components.dart';
 import 'video_player_screen.dart';
 
+/// Single curriculum view: cinematic hero, one primary action, and three peer
+/// views over the same course record — lectures, resources and overview.
 class CourseDetailScreen extends StatefulWidget {
   final Course? course;
   final String? courseId;
@@ -17,23 +22,23 @@ class CourseDetailScreen extends StatefulWidget {
     super.key,
     this.course,
     this.courseId,
-  }) : assert(course != null || courseId != null, 'Provide either course or courseId');
+  }) : assert(course != null || courseId != null,
+            'Provide either course or courseId');
 
   @override
   State<CourseDetailScreen> createState() => _CourseDetailScreenState();
 }
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
-  int _selectedTabIndex = 0; // 0 = Lectures, 1 = Documents, 2 = Overview
+  /// 0 = lectures, 1 = resources, 2 = overview.
+  int _viewIndex = 0;
   bool _isLoadingCurriculum = false;
   String? _curriculumError;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadCurriculum();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCurriculum());
   }
 
   Future<void> _loadCurriculum() async {
@@ -54,721 +59,164 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     try {
       await provider.loadFullCourseCurriculum(course);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _curriculumError = e.toString();
-        });
-      }
+      if (mounted) setState(() => _curriculumError = e.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingCurriculum = false;
-        });
-      }
+      if (mounted) setState(() => _isLoadingCurriculum = false);
     }
+  }
+
+  void _openLecture(Course course, Lecture lecture) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => VideoPlayerScreen(
+          course: course,
+          initialLecture: lecture,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareCourse(Course course) async {
+    await Clipboard.setData(ClipboardData(text: course.magnetUri));
+    if (!mounted) return;
+    showAppSnack(
+      context,
+      'Curriculum link copied to clipboard',
+      icon: Icons.link_rounded,
+    );
+  }
+
+  void _toggleDownload(Lecture lecture) {
+    final provider = context.read<CourseProvider>();
+    provider.toggleLectureDownloaded(lecture.id);
+    showAppSnack(
+      context,
+      lecture.isDownloaded
+          ? 'Removed from offline downloads'
+          : 'Lecture saved for offline viewing',
+      icon: lecture.isDownloaded
+          ? Icons.delete_outline_rounded
+          : Icons.download_done_rounded,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
+
     return Consumer<CourseProvider>(
       builder: (context, provider, _) {
         final targetId = widget.course?.id ?? widget.courseId!;
-        final resolvedCourse = provider.getCourseById(targetId) ?? widget.course;
-        if (resolvedCourse == null) {
-          return const Scaffold(
-            backgroundColor: AppTheme.background,
-            body: Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryGlow),
+        final course = provider.getCourseById(targetId) ?? widget.course;
+
+        if (course == null) {
+          return Scaffold(
+            backgroundColor: t.canvas,
+            body: const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
             ),
           );
         }
 
-        final firstUnfinishedLecture = resolvedCourse.lectures.isEmpty
+        final nextLecture = course.lectures.isEmpty
             ? null
-            : resolvedCourse.lectures.firstWhere(
-                (l) => !l.isCompleted && l.watchProgress < 0.9,
-                orElse: () => resolvedCourse.lectures.first,
+            : course.lectures.firstWhere(
+                (l) => l.watchProgress < 0.9,
+                orElse: () => course.lectures.first,
               );
 
         return Scaffold(
-          backgroundColor: AppTheme.background,
+          backgroundColor: t.canvas,
           body: CustomScrollView(
-            slivers: [
-              // Modern Hero Sliver App Bar with Course Thumbnail & Frosted Controls
-              SliverAppBar(
-                expandedHeight: 270,
-                pinned: true,
-                backgroundColor: AppTheme.surface,
-                leading: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(160),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                ),
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Backdrop Course Thumbnail Image or Gradient
-                      if (resolvedCourse.thumbnailUrl.isNotEmpty)
-                        Image.network(
-                          resolvedCourse.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildHeroFallback(),
-                        )
-                      else
-                        _buildHeroFallback(),
-
-                      // Luxury Dark Vignette Gradient
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.black.withAlpha(140),
-                              Colors.black.withAlpha(80),
-                              AppTheme.surface.withAlpha(200),
-                              AppTheme.background,
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-
-                      // Info Overlays
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 75, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.getTechColor(resolvedCourse.category).withAlpha(40),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: AppTheme.getTechColor(resolvedCourse.category).withAlpha(120),
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        AppTheme.getTechEmoji(resolvedCourse.category),
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        resolvedCourse.category.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.5,
-                                          color: AppTheme.getTechColor(resolvedCourse.category),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceElevated,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.cardBorder),
-                                  ),
-                                  child: Text(
-                                    resolvedCourse.level,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.getLevelColor(resolvedCourse.level),
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondary.withAlpha(25),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.secondary.withAlpha(120), width: 0.8),
-                                  ),
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.verified_rounded, size: 13, color: AppTheme.secondary),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Enterprise Verified',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.4,
-                                          color: AppTheme.secondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              resolvedCourse.title,
-                              style: GoogleFonts.outfit(
-                                fontSize: 21,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                height: 1.25,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 5),
-                            Row(
-                              children: [
-                                Text(
-                                  resolvedCourse.university,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.verified_rounded, size: 14, color: AppTheme.primaryGlow),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '• ${resolvedCourse.author}',
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  Container(
-                    margin: const EdgeInsets.only(right: 6, top: 8, bottom: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(160),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
-                    ),
-                    child: IconButton(
-                      iconSize: 18,
-                      icon: Icon(
-                        resolvedCourse.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                        color: resolvedCourse.isBookmarked ? AppTheme.accent : Colors.white,
-                      ),
-                      onPressed: () => provider.toggleBookmark(resolvedCourse.id),
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(right: 14, top: 8, bottom: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(160),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withAlpha(40), width: 0.8),
-                    ),
-                    child: IconButton(
-                      iconSize: 18,
-                      icon: const Icon(Icons.share_rounded, color: Colors.white),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: resolvedCourse.magnetUri));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Course curriculum link copied to clipboard!'),
-                            backgroundColor: AppTheme.primary,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+            physics: const BouncingScrollPhysics(),
+            slivers: <Widget>[
+              _CourseHero(
+                course: course,
+                onToggleBookmark: () => provider.toggleBookmark(course.id),
+                onShare: () => _shareCourse(course),
               ),
 
-              // Content Body Header & Play Button
+              // ---- Primary action + progress --------------------------------
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    AppSpace.xl,
+                    AppSpace.gutter,
+                    AppSpace.lg,
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Resume or Start Watching Hero Button
-                      Container(
-                        width: double.infinity,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primary.withAlpha(90),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          icon: Icon(
-                            firstUnfinishedLecture != null
-                                ? Icons.play_circle_fill
-                                : (_isLoadingCurriculum ? Icons.sync : Icons.refresh),
-                            size: 22,
-                          ),
-                          label: Text(
-                            firstUnfinishedLecture != null
-                                ? (resolvedCourse.overallProgress > 0
-                                    ? 'Resume Lecture ${firstUnfinishedLecture.number}'
-                                    : 'Start Course (Lecture 1)')
-                                : (_isLoadingCurriculum
-                                    ? 'Synchronizing Curriculum...'
-                                    : (_curriculumError != null
-                                        ? 'Retry Loading Curriculum'
-                                        : 'Load Curriculum')),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          onPressed: () {
-                            if (firstUnfinishedLecture != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => VideoPlayerScreen(
-                                    course: resolvedCourse,
-                                    initialLecture: firstUnfinishedLecture,
-                                  ),
-                                ),
-                              );
-                            } else {
-                              _loadCurriculum();
-                            }
-                          },
-                        ),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _ResumeAction(
+                        course: course,
+                        lecture: nextLecture,
+                        isLoading: _isLoadingCurriculum,
+                        hasError: _curriculumError != null,
+                        onPlay: nextLecture == null
+                            ? _loadCurriculum
+                            : () => _openLecture(course, nextLecture),
                       ),
-                      const SizedBox(height: 16),
-
-                      // Course progress indicator if started
-                      if (resolvedCourse.overallProgress > 0) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Course Progress: ${(resolvedCourse.overallProgress * 100).toInt()}%',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary),
-                            ),
-                            Text(
-                              resolvedCourse.lectures.isNotEmpty ? '${resolvedCourse.completedLecturesCount} of ${resolvedCourse.lectures.length} completed' : 'Comprehensive Curriculum',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: resolvedCourse.overallProgress,
-                            backgroundColor: AppTheme.surfaceElevated,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondary),
-                            minHeight: 6,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                      if (course.overallProgress > 0) ...<Widget>[
+                        const SizedBox(height: AppSpace.lg),
+                        _ProgressPanel(course: course),
                       ],
-
-                      // SEGMENTED TABS: Videos (XX) | Documents & Slides (XX) | Overview
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceElevated,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.cardBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildSegmentButton(
-                                label: resolvedCourse.lectures.isEmpty
-                                    ? (_isLoadingCurriculum ? 'Videos (...)' : 'Videos (0)')
-                                    : 'Videos (${resolvedCourse.lectures.length})',
-                                icon: Icons.video_library_outlined,
-                                isSelected: _selectedTabIndex == 0,
-                                onTap: () => setState(() => _selectedTabIndex = 0),
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildSegmentButton(
-                                label: 'Docs & Slides (${resolvedCourse.documents.length})',
-                                icon: Icons.description_outlined,
-                                isSelected: _selectedTabIndex == 1,
-                                onTap: () => setState(() => _selectedTabIndex = 1),
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildSegmentButton(
-                                label: 'Overview',
-                                icon: Icons.info_outline,
-                                isSelected: _selectedTabIndex == 2,
-                                onTap: () => setState(() => _selectedTabIndex = 2),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
                     ],
                   ),
                 ),
               ),
 
-              // LIVE CURRICULUM SYNC BANNER
+              // ---- Curriculum sync state -----------------------------------
               if (_isLoadingCurriculum)
+                SliverToBoxAdapter(child: _SyncBanner(course: course))
+              else if (_curriculumError != null && !course.isCurriculumLoaded)
                 SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withAlpha(35),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.primaryGlow.withAlpha(120), width: 1.2),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.secondary),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text(
-                                'Synchronizing Complete Curriculum...',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Fetching all 50-300+ videos & materials from open repository manifests.',
-                                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: _PreviewBanner(
+                    message: _curriculumError!,
+                    onRetry: _loadCurriculum,
                   ),
                 ),
 
-              if (_curriculumError != null && !resolvedCourse.isCurriculumLoaded)
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceElevated,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.cardBorder),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 16, color: AppTheme.secondary),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Showing authentic preview lectures. Connect online to load full archive.',
-                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _loadCurriculum,
-                          child: const Text('Retry', style: TextStyle(color: AppTheme.secondary, fontSize: 12)),
-                        ),
-                      ],
-                    ),
+              // ---- View switcher -------------------------------------------
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    AppSpace.xs,
+                    AppSpace.gutter,
+                    AppSpace.lg,
+                  ),
+                  child: AppSegmentControl(
+                    labels: <String>[
+                      'Lectures${course.lectures.isEmpty ? '' : ' ${course.lectures.length}'}',
+                      'Resources${course.documents.isEmpty ? '' : ' ${course.documents.length}'}',
+                      'Overview',
+                    ],
+                    icons: const <IconData>[
+                      Icons.play_circle_outline_rounded,
+                      Icons.description_outlined,
+                      Icons.insights_rounded,
+                    ],
+                    selectedIndex: _viewIndex,
+                    onChanged: (value) => setState(() => _viewIndex = value),
                   ),
                 ),
+              ),
 
-              // TAB CONTENT SLIVER
-              if (_selectedTabIndex == 0)
-                // TAB 0: ALL VIDEO LECTURES
-                if (_isLoadingCurriculum && resolvedCourse.lectures.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 36),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            const SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.8,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.secondary),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            const Text(
-                              'Fetching Authentic Curriculum...',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Scanning verified open repository manifests for all lecture videos & resources.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else if (resolvedCourse.lectures.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              _curriculumError != null ? Icons.wifi_off_rounded : Icons.video_library_outlined,
-                              size: 46,
-                              color: AppTheme.textMuted,
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              _curriculumError != null
-                                  ? 'Curriculum Sync Interrupted'
-                                  : 'Curriculum Not Yet Loaded',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _curriculumError ?? 'Tap below to download the complete lecture curriculum.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                            ),
-                            const SizedBox(height: 18),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Load Full Curriculum'),
-                              onPressed: _loadCurriculum,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final lecture = resolvedCourse.lectures[index];
-                          final isFirstInSection = index == 0 ||
-                              resolvedCourse.lectures[index - 1].section !=
-                                  lecture.section;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (isFirstInSection) ...[
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    top: index == 0 ? 0 : 16,
-                                    bottom: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 4,
-                                        height: 16,
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.secondary,
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          lecture.section.isNotEmpty
-                                              ? lecture.section
-                                              : 'Module ${(index ~/ 10) + 1}',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                            letterSpacing: 0.2,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              _buildLectureItem(
-                                  context, resolvedCourse, lecture, provider),
-                            ],
-                          );
-                        },
-                        childCount: resolvedCourse.lectures.length,
-                      ),
-                    ),
-                  )
-              else if (_selectedTabIndex == 1)
-                // TAB 1: DOCUMENTS, SLIDES & CODE REPOSITORIES
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  sliver: resolvedCourse.documents.isEmpty
-                      ? SliverToBoxAdapter(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 32),
-                              child: Column(
-                                children: const [
-                                  Icon(Icons.folder_open, size: 48, color: AppTheme.textMuted),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'No companion documents attached yet.',
-                                    style: TextStyle(color: AppTheme.textMuted),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final doc = resolvedCourse.documents[index];
-                              return _buildDocumentItem(context, doc);
-                            },
-                            childCount: resolvedCourse.documents.length,
-                          ),
-                        ),
-                )
+              // ---- Lectures -------------------------------------------------
+              if (_viewIndex == 0)
+                ..._buildLectures(course)
+              // ---- Resources ------------------------------------------------
+              else if (_viewIndex == 1)
+                ..._buildResources(course)
+              // ---- Overview -------------------------------------------------
               else
-                // TAB 2: OVERVIEW & STACKS
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Tech Stacks Covered
-                        const Text(
-                          'Technologies & Stacks',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: resolvedCourse.techStacks.map((tech) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceElevated,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.cardBorder),
-                              ),
-                              child: Text(
-                                '#$tech',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.secondary,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Curriculum Description
-                        const Text(
-                          'Course Curriculum Overview',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          resolvedCourse.description,
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Metadata Info Box (Size, Peers, WebSeed, Delivery)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.cardBorder),
-                          ),
-                          child: Column(
-                            children: [
-                              _buildInfoTile('Total Curriculum Size', resolvedCourse.sizeFormatted, Icons.storage_outlined),
-                              const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Video Lectures in Syllabus', resolvedCourse.lectures.isNotEmpty ? '${resolvedCourse.lectures.length} lessons' : 'Full Curriculum', Icons.video_library_outlined),
-                              const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Learning Resources & Docs', '${resolvedCourse.documents.length} materials', Icons.file_present_outlined),
-                              const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Student Rating', '★ ${resolvedCourse.rating} (${resolvedCourse.enrolledCount} engineers)', Icons.star_border),
-                              const Divider(color: AppTheme.cardBorder, height: 16),
-                              _buildInfoTile('Streaming Protocol', 'Enterprise High-Speed CDN', Icons.speed_outlined),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                ..._buildOverview(course),
             ],
           ),
         );
@@ -776,418 +224,1040 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     );
   }
 
-  Widget _buildSegmentButton({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primary.withAlpha(90),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+  // ---------------------------------------------------------------------------
+  // Lectures
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _buildLectures(Course course) {
+    if (course.lectures.isEmpty) {
+      return <Widget>[
+        SliverToBoxAdapter(
+          child: AppEmptyState(
+            compact: true,
+            icon: _curriculumError != null
+                ? Icons.wifi_off_rounded
+                : Icons.video_library_outlined,
+            title: _curriculumError != null
+                ? 'Curriculum sync interrupted'
+                : 'Curriculum not loaded yet',
+            message: _curriculumError != null
+                ? 'Preview lectures are shown until the full archive is reachable.'
+                : 'Load the complete lecture syllabus from the open repository.',
+            actionLabel: 'Load full curriculum',
+            onAction: _loadCurriculum,
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? Colors.white : AppTheme.textSecondary,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : AppTheme.textSecondary,
+      ];
+    }
+
+    final slivers = <Widget>[];
+
+    for (var i = 0; i < course.lectures.length; i++) {
+      final lecture = course.lectures[i];
+      final startsSection =
+          i == 0 || course.lectures[i - 1].section != lecture.section;
+
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (startsSection)
+                _SectionHeading(
+                  title: lecture.section.isEmpty
+                      ? 'Module ${(i ~/ 10) + 1}'
+                      : lecture.section,
+                ),
+              _LectureRow(
+                lecture: lecture,
+                onTap: () => _openLecture(course, lecture),
+                onDownload: () => _toggleDownload(lecture),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
+      );
+    }
+
+    slivers.add(
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpace.x4l)),
+    );
+
+    return slivers;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resources
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _buildResources(Course course) {
+    if (course.documents.isEmpty) {
+      return const <Widget>[
+        SliverToBoxAdapter(
+          child: AppEmptyState(
+            compact: true,
+            icon: Icons.folder_open_rounded,
+            title: 'No companion documents',
+            message:
+                'This curriculum ships video lectures only. Slides and labs '
+                'appear here when the repository publishes them.',
+          ),
+        ),
+      ];
+    }
+
+    return <Widget>[
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter,
+          0,
+          AppSpace.gutter,
+          AppSpace.x4l,
+        ),
+        sliver: SliverList.separated(
+          itemCount: course.documents.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpace.md),
+          itemBuilder: (context, index) {
+            final doc = course.documents[index];
+            return _ResourceRow(
+              doc: doc,
+              onSave: () {
+                showAppSnack(
+                  context,
+                  '“${doc.title}” cached for offline study',
+                  icon: Icons.download_done_rounded,
+                );
+              },
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Overview
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _buildOverview(Course course) {
+    return <Widget>[
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.gutter,
+            0,
+            AppSpace.gutter,
+            AppSpace.x4l,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const SectionHeader(
+                title: 'Technologies & Stacks',
+                subtitle: 'What this curriculum covers',
+                padding: EdgeInsets.fromLTRB(0, 0, 0, AppSpace.md),
+              ),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: <Widget>[
+                  for (final tech in course.techStacks)
+                    AppPill(
+                      label: tech,
+                      icon: TechPalette.iconFor(tech),
+                      color: TechPalette.colorFor(tech),
+                    ),
+                ],
+              ),
+              const SectionHeader(
+                title: 'Curriculum Overview',
+                padding:
+                    EdgeInsets.fromLTRB(0, AppSpace.section, 0, AppSpace.md),
+              ),
+              Text(course.description, style: context.text.bodyMedium),
+              const SectionHeader(
+                title: 'Curriculum Facts',
+                padding:
+                    EdgeInsets.fromLTRB(0, AppSpace.section, 0, AppSpace.md),
+              ),
+              AppSurface.inset(
+                radius: AppRadius.lg,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.lg,
+                  vertical: AppSpace.xs,
+                ),
+                child: Column(
+                  children: <Widget>[
+                    _FactRow(
+                      icon: Icons.storage_rounded,
+                      label: 'Curriculum size',
+                      value: course.sizeFormatted,
+                    ),
+                    _FactRow(
+                      icon: Icons.ondemand_video_rounded,
+                      label: 'Video lectures',
+                      value: course.lectures.isEmpty
+                          ? 'Full syllabus'
+                          : '${course.lectures.length} lessons',
+                    ),
+                    _FactRow(
+                      icon: Icons.folder_copy_rounded,
+                      label: 'Learning resources',
+                      value: '${course.documents.length} materials',
+                    ),
+                    _FactRow(
+                      icon: Icons.star_rounded,
+                      label: 'Student rating',
+                      value:
+                          '${course.rating} · ${course.enrolledCount} learners',
+                      iconColor: context.tokens.accent,
+                    ),
+                    _FactRow(
+                      icon: Icons.schedule_rounded,
+                      label: 'Estimated effort',
+                      value: course.estimatedHours,
+                    ),
+                    _FactRow(
+                      icon: Icons.speed_rounded,
+                      label: 'Streaming',
+                      value: 'Verified CDN',
+                      showDivider: false,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+}
+
+// =============================================================================
+// Hero
+// =============================================================================
+
+class _CourseHero extends StatelessWidget {
+  const _CourseHero({
+    required this.course,
+    required this.onToggleBookmark,
+    required this.onShare,
+  });
+
+  final Course course;
+  final VoidCallback onToggleBookmark;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return SliverAppBar(
+      expandedHeight: 296,
+      pinned: true,
+      backgroundColor: t.canvas,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: Padding(
+        padding: const EdgeInsets.all(AppSpace.xs),
+        child: _ScrimIconButton(
+          icon: Icons.arrow_back_rounded,
+          tooltip: 'Back',
+          onTap: () => Navigator.pop(context),
+        ),
+      ),
+      actions: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+          child: _ScrimIconButton(
+            icon: course.isBookmarked
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            tooltip:
+                course.isBookmarked ? 'Remove bookmark' : 'Bookmark course',
+            color: course.isBookmarked ? t.accent : null,
+            onTap: onToggleBookmark,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              0, AppSpace.xs, AppSpace.sm, AppSpace.xs),
+          child: _ScrimIconButton(
+            icon: Icons.ios_share_rounded,
+            tooltip: 'Copy curriculum link',
+            onTap: onShare,
+          ),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.parallax,
+        background: _HeroBackdrop(course: course),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: t.hairline),
       ),
     );
   }
+}
 
-  Widget _buildDocumentItem(BuildContext context, CourseDocument doc) {
-    IconData icon;
-    Color iconColor;
-    Color bgColor;
+class _HeroBackdrop extends StatelessWidget {
+  const _HeroBackdrop({required this.course});
 
-    switch (doc.type) {
-      case 'slides':
-      case 'pdf':
-        icon = Icons.picture_as_pdf;
-        iconColor = const Color(0xFFF43F5E);
-        bgColor = const Color(0xFFF43F5E).withAlpha(40);
-        break;
-      case 'code':
-        icon = Icons.code_rounded;
-        iconColor = AppTheme.primaryGlow;
-        bgColor = AppTheme.primary.withAlpha(40);
-        break;
-      case 'cheatsheet':
-        icon = Icons.bolt;
-        iconColor = AppTheme.accent;
-        bgColor = AppTheme.accent.withAlpha(40);
-        break;
-      default:
-        icon = Icons.article_outlined;
-        iconColor = AppTheme.secondary;
-        bgColor = AppTheme.secondary.withAlpha(40);
-    }
+  final Course course;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: AppTheme.luxuryCardDecoration(radius: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Document Type Icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+    final levelColor = TechPalette.levelColor(course.level);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        if (course.thumbnailUrl.isNotEmpty)
+          Image.network(
+            course.thumbnailUrl,
+            fit: BoxFit.cover,
+            excludeFromSemantics: true,
+            errorBuilder: (_, __, ___) => _HeroFallback(course: course),
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : _HeroFallback(course: course),
+          )
+        else
+          _HeroFallback(course: course),
+
+        // Top scrim keeps the toolbar controls legible over any artwork.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Colors.black.withValues(alpha: 0.55),
+                Colors.transparent,
+              ],
+              stops: const <double>[0, 0.32],
             ),
-            const SizedBox(width: 12),
+          ),
+        ),
 
-            // Title, Description & Size
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          doc.title,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+        // Bottom plate dissolves the artwork into the canvas.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                Colors.transparent,
+                t.canvas.withValues(alpha: 0.85),
+                t.canvas,
+              ],
+              stops: const <double>[0, 0.62, 1],
+            ),
+          ),
+        ),
+
+        Positioned(
+          left: AppSpace.gutter,
+          right: AppSpace.gutter,
+          bottom: AppSpace.lg,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: <Widget>[
+                  AppPill(
+                    label: course.category.toUpperCase(),
+                    icon: TechPalette.iconFor(course.category),
+                    color: c.primary,
+                    dense: true,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    doc.description,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.3),
+                  AppPill(
+                    label: course.level.toUpperCase(),
+                    icon: Icons.signal_cellular_alt_rounded,
+                    color: levelColor,
+                    dense: true,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceElevated,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.cardBorder),
-                        ),
-                        child: Text(
-                          doc.type.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: iconColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        doc.sizeFormatted,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                      ),
-                    ],
+                  AppPill(
+                    label: course.code,
+                    icon: Icons.verified_rounded,
+                    color: t.green,
+                    dense: true,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-
-            // Open / Download Action Button
-            IconButton(
-              icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.secondary),
-              tooltip: 'Save Document Offline',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: AppTheme.secondary, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('Cached "${doc.title}" for offline study!'),
-                        ),
-                      ],
+              const SizedBox(height: AppSpace.md),
+              Text(
+                course.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.headlineSmall!.copyWith(
+                  color: context.colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Row(
+                children: <Widget>[
+                  Icon(Icons.school_rounded,
+                      size: AppIcon.xs, color: t.textMuted),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      '${course.university} · ${course.author}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodySmall,
                     ),
-                    backgroundColor: AppTheme.surfaceElevated,
-                    duration: const Duration(seconds: 2),
                   ),
-                );
-              },
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
+}
 
-  Widget _buildHeroFallback() {
-    return Container(
-      decoration: const BoxDecoration(
+class _HeroFallback extends StatelessWidget {
+  const _HeroFallback({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final c = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFF0072CE),
-            Color(0xFF0D1322),
-            Color(0xFF080C14),
+          colors: <Color>[
+            Color.alphaBlend(
+              c.primary.withValues(alpha: AppAlpha.strong),
+              t.brandDeep,
+            ),
+            t.canvasSunken,
+            t.canvas,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
       child: Center(
-        child: Image.asset(
-          'assets/images/aligned_icon.png',
-          height: 60,
-          errorBuilder: (_, __, ___) => const Icon(Icons.school, size: 60, color: Colors.white24),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppTheme.secondary),
-        const SizedBox(width: 10),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-        const Spacer(),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLectureItem(
-    BuildContext context,
-    Course course,
-    Lecture lecture,
-    CourseProvider provider,
-  ) {
-    final isCompleted = lecture.isCompleted || lecture.watchProgress >= 0.9;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: AppTheme.luxuryCardDecoration(
-        radius: 16,
-        hasGlow: lecture.watchProgress > 0 && !isCompleted,
-        glowColor: AppTheme.secondary,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => VideoPlayerScreen(
-                  course: course,
-                  initialLecture: lecture,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Image.asset(
+              'assets/images/aligned_icon.png',
+              height: 56,
+              excludeFromSemantics: true,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.school_rounded,
+                size: 52,
+                color: t.textOnBrand.withValues(alpha: 0.85),
               ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Index badge or checkmark
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isCompleted
-                        ? AppTheme.success.withAlpha(35)
-                        : (lecture.watchProgress > 0
-                            ? AppTheme.secondary.withAlpha(25)
-                            : AppTheme.surfaceElevated),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isCompleted
-                          ? AppTheme.success.withAlpha(120)
-                          : (lecture.watchProgress > 0
-                              ? AppTheme.secondary.withAlpha(100)
-                              : AppTheme.cardBorder),
-                      width: 1,
-                    ),
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(Icons.check_rounded, color: AppTheme.success, size: 18)
-                        : Text(
-                            '${lecture.number}',
-                            style: GoogleFonts.outfit(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: lecture.watchProgress > 0 ? AppTheme.secondary : AppTheme.textPrimary,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              course.code.isEmpty ? course.category : course.code,
+              style: context.text.labelSmall!.copyWith(
+                color: t.textOnBrand.withValues(alpha: 0.85),
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-                // Title, summary, and progress
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lecture.title,
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        lecture.summary,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceElevated,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.cardBorder),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.schedule_rounded, size: 10, color: AppTheme.textMuted),
-                                const SizedBox(width: 3),
-                                Text(
-                                  lecture.duration,
-                                  style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (lecture.watchProgress > 0) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isCompleted ? AppTheme.success.withAlpha(25) : AppTheme.secondary.withAlpha(25),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: isCompleted ? AppTheme.success.withAlpha(90) : AppTheme.secondary.withAlpha(90),
-                                  width: 0.6,
-                                ),
-                              ),
-                              child: Text(
-                                isCompleted
-                                    ? '✓ COMPLETED'
-                                    : '${(lecture.watchProgress * 100).toInt()}% WATCHED',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: isCompleted ? AppTheme.success : AppTheme.secondary,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
+class _ScrimIconButton extends StatelessWidget {
+  const _ScrimIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.color,
+  });
 
-                // Download toggle button
-                IconButton(
-                  icon: Icon(
-                    lecture.isDownloaded ? Icons.download_done_rounded : Icons.download_outlined,
-                    size: 20,
-                    color: lecture.isDownloaded ? AppTheme.secondary : AppTheme.textMuted,
-                  ),
-                  tooltip: lecture.isDownloaded ? 'Downloaded' : 'Save Offline',
-                  onPressed: () {
-                    provider.toggleLectureDownloaded(lecture.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          lecture.isDownloaded
-                              ? 'Removed from downloads'
-                              : 'Lecture saved for offline viewing!',
-                        ),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color? color;
 
-                // Interactive Watch Pill Button
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withAlpha(35),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primaryGlow.withAlpha(80), width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.play_arrow_rounded, color: AppTheme.primaryGlow, size: 14),
-                      SizedBox(width: 2),
-                      Text(
-                        'Play',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGlow),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.45),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: AppSpace.touchTarget,
+            height: AppSpace.touchTarget,
+            child: Icon(
+              icon,
+              size: AppIcon.sm,
+              color: color ?? Colors.white,
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// Primary action + progress
+// =============================================================================
+
+class _ResumeAction extends StatelessWidget {
+  const _ResumeAction({
+    required this.course,
+    required this.lecture,
+    required this.isLoading,
+    required this.hasError,
+    required this.onPlay,
+  });
+
+  final Course course;
+  final Lecture? lecture;
+  final bool isLoading;
+  final bool hasError;
+  final VoidCallback onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    if (lecture == null) {
+      return AppButton(
+        label: isLoading
+            ? 'Synchronising curriculum'
+            : hasError
+                ? 'Retry curriculum sync'
+                : 'Load curriculum',
+        icon: isLoading ? Icons.sync_rounded : Icons.cloud_download_outlined,
+        loading: isLoading,
+        onPressed: onPlay,
+      );
+    }
+
+    final started = course.overallProgress > 0;
+
+    return AppButton(
+      label: started
+          ? 'Resume lecture ${lecture!.number}'
+          : 'Start course · lecture 1',
+      icon: Icons.play_arrow_rounded,
+      color: context.tokens.green,
+      onPressed: onPlay,
+    );
+  }
+}
+
+class _ProgressPanel extends StatelessWidget {
+  const _ProgressPanel({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final percent = (course.overallProgress * 100).round();
+
+    return AppSurface(
+      radius: AppRadius.lg,
+      elevated: true,
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text('$percent%',
+                  style: context.text.metric.copyWith(color: t.green)),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text('of this curriculum complete',
+                      style: context.text.bodySmall),
+                ),
+              ),
+              Text(
+                '${course.completedLecturesCount}/${course.lectures.length}',
+                style: context.text.labelMedium!.copyWith(color: t.green),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          AppProgressBar(value: course.overallProgress, color: t.green),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Banners
+// =============================================================================
+
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter, 0, AppSpace.gutter, AppSpace.lg),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: c.primary.withValues(alpha: AppAlpha.wash),
+          borderRadius: AppRadius.allMd,
+          border: Border.all(color: c.primary.withValues(alpha: AppAlpha.soft)),
+        ),
+        child: Row(
+          children: <Widget>[
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text('Syncing full curriculum',
+                      style: context.text.titleSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Scanning verified open repository manifests for every '
+                    'lecture and resource in this track.',
+                    style: context.text.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewBanner extends StatelessWidget {
+  const _PreviewBanner({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter, 0, AppSpace.gutter, AppSpace.lg),
+      child: AppSurface.inset(
+        color: t.warning.withValues(alpha: AppAlpha.wash),
+        border: BorderSide(color: t.warning.withValues(alpha: AppAlpha.soft)),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.xs,
+          AppSpace.sm,
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(Icons.cloud_off_rounded, size: AppIcon.sm, color: t.warning),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Text(
+                'Preview lectures only — connect to the repository for the '
+                'complete archive.',
+                style: context.text.bodySmall,
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(foregroundColor: t.warning),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Lecture list
+// =============================================================================
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpace.gutter, AppSpace.md, AppSpace.gutter, AppSpace.sm),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 3,
+            height: 16,
+            decoration: BoxDecoration(
+              color: c.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Text(
+              title.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.labelSmall!.copyWith(
+                color: c.primary,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LectureRow extends StatelessWidget {
+  const _LectureRow({
+    required this.lecture,
+    required this.onTap,
+    required this.onDownload,
+  });
+
+  final Lecture lecture;
+  final VoidCallback onTap;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final done = lecture.isCompleted || lecture.watchProgress >= 0.9;
+    final started = lecture.watchProgress > 0 && !done;
+    final progress = lecture.watchProgress;
+
+    final statusColor = done
+        ? t.success
+        : started
+            ? t.green
+            : t.textMuted;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+      child: AppSurface(
+        radius: AppRadius.md,
+        margin: const EdgeInsets.only(bottom: AppSpace.sm),
+        onTap: onTap,
+        glow: started ? t.green : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.md, AppSpace.md, AppSpace.xs, AppSpace.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _LectureBadge(
+                number: lecture.number,
+                done: done,
+                started: started,
+                color: statusColor,
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      lecture.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpace.xs),
+                    Text(
+                      lecture.summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    Wrap(
+                      spacing: AppSpace.sm,
+                      runSpacing: AppSpace.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        AppPill(
+                          label: lecture.duration,
+                          icon: Icons.schedule_rounded,
+                          color: t.textMuted,
+                          dense: true,
+                        ),
+                        if (lecture.isDownloaded)
+                          AppPill(
+                            label: 'Offline',
+                            icon: Icons.download_done_rounded,
+                            color: t.info,
+                            dense: true,
+                          ),
+                        if (started)
+                          AppPill(
+                            label: '${(progress * 100).round()}% watched',
+                            icon: Icons.timelapse_rounded,
+                            color: t.green,
+                            dense: true,
+                            selected: true,
+                          )
+                        else if (done)
+                          AppPill(
+                            label: 'Completed',
+                            icon: Icons.check_circle_rounded,
+                            color: t.success,
+                            dense: true,
+                            selected: true,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: <Widget>[
+                  IconButton(
+                    onPressed: onDownload,
+                    tooltip: lecture.isDownloaded
+                        ? 'Remove from offline'
+                        : 'Save offline',
+                    visualDensity: VisualDensity.compact,
+                    iconSize: AppIcon.md,
+                    icon: Icon(
+                      lecture.isDownloaded
+                          ? Icons.download_done_rounded
+                          : Icons.download_outlined,
+                      color: lecture.isDownloaded ? t.info : t.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Icon(Icons.play_circle_fill_rounded,
+                      size: 22, color: statusColor),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LectureBadge extends StatelessWidget {
+  const _LectureBadge({
+    required this.number,
+    required this.done,
+    required this.started,
+    required this.color,
+  });
+
+  final int number;
+  final bool done;
+  final bool started;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: done || started
+            ? color.withValues(alpha: AppAlpha.soft)
+            : t.surfaceRaised,
+        borderRadius: AppRadius.allSm,
+        border: Border.all(
+          color: done || started
+              ? color.withValues(alpha: AppAlpha.medium)
+              : t.hairline,
+        ),
+      ),
+      child: Center(
+        child: done
+            ? Icon(Icons.check_rounded, size: AppIcon.sm, color: color)
+            : Text(
+                '$number',
+                style: context.text.labelMedium!.copyWith(
+                  color: started ? color : t.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Resource list
+// =============================================================================
+
+class _ResourceRow extends StatelessWidget {
+  const _ResourceRow({required this.doc, required this.onSave});
+
+  final CourseDocument doc;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final color = DocPalette.colorFor(doc.type);
+
+    return AppSurface(
+      radius: AppRadius.md,
+      padding: const EdgeInsets.fromLTRB(
+          AppSpace.md, AppSpace.md, AppSpace.xs, AppSpace.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          AppIconTile(
+              icon: DocPalette.iconFor(doc.type), color: color, size: 44),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  doc.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.titleMedium,
+                ),
+                if (doc.description.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    doc.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: AppSpace.sm),
+                Row(
+                  children: <Widget>[
+                    AppPill(
+                      label: DocPalette.labelFor(doc.type),
+                      color: color,
+                      dense: true,
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Flexible(
+                      child: Text(
+                        doc.sizeFormatted,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.monoSmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onSave,
+            tooltip: 'Save resource offline',
+            visualDensity: VisualDensity.compact,
+            iconSize: AppIcon.md,
+            icon: Icon(Icons.download_for_offline_outlined, color: t.green),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Overview facts
+// =============================================================================
+
+class _FactRow extends StatelessWidget {
+  const _FactRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.iconColor,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? iconColor;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final accent = iconColor ?? context.colors.primary;
+
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: AppIcon.sm, color: accent),
+              const SizedBox(width: AppSpace.md),
+              Expanded(child: Text(label, style: context.text.bodyMedium)),
+              const SizedBox(width: AppSpace.md),
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      context.text.labelMedium!.copyWith(color: t.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider) Divider(height: 1, color: t.hairline),
+      ],
     );
   }
 }
