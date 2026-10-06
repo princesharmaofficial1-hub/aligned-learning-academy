@@ -179,7 +179,8 @@ class _NavDockItem extends StatelessWidget {
           child: AnimatedContainer(
             duration: AppMotion.fast,
             curve: AppMotion.emphasized,
-            height: AppSpace.touchTarget,
+            constraints: const BoxConstraints(minHeight: AppSpace.touchTarget),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
             decoration: BoxDecoration(
               color: selected
                   ? c.primary.withValues(alpha: AppAlpha.medium)

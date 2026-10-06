@@ -1074,49 +1074,53 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final t = context.tokens;
     final duration = _controller?.value.duration ?? Duration.zero;
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         if (_controller != null)
-          Expanded(
-            child: VideoProgressIndicator(
-              _controller!,
-              allowScrubbing: true,
-              padding: EdgeInsets.zero,
-              colors: VideoProgressColors(
-                playedColor: t.green,
-                bufferedColor: Colors.white.withValues(alpha: 0.30),
-                backgroundColor: Colors.white.withValues(alpha: 0.14),
-              ),
+          VideoProgressIndicator(
+            _controller!,
+            allowScrubbing: true,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            colors: VideoProgressColors(
+              playedColor: t.green,
+              bufferedColor: Colors.white.withValues(alpha: 0.35),
+              backgroundColor: Colors.white.withValues(alpha: 0.16),
             ),
           )
         else
-          Expanded(
-            child: AppProgressBar(
-              value: duration.inMilliseconds == 0
-                  ? 0
-                  : _position.inMilliseconds / duration.inMilliseconds,
-              color: t.green,
-              height: 4,
-              background: Colors.white.withValues(alpha: 0.14),
-            ),
+          AppProgressBar(
+            value: duration.inMilliseconds == 0
+                ? 0
+                : _position.inMilliseconds / duration.inMilliseconds,
+            color: t.green,
+            height: 4,
+            background: Colors.white.withValues(alpha: 0.16),
           ),
-        const SizedBox(width: AppSpace.md),
-        Text(
-          '${_formatDuration(_position)} / ${_formatDuration(duration)}',
-          style: context.text.monoSmall.copyWith(color: Colors.white70),
-        ),
-        const SizedBox(width: AppSpace.md),
-        _HudPill(
-          label: '${_currentSpeed}x',
-          onTap: _showSpeedPicker,
-        ),
-        const SizedBox(width: AppSpace.sm),
-        _HudIconButton(
-          icon: _isFullscreen
-              ? Icons.fullscreen_exit_rounded
-              : Icons.fullscreen_rounded,
-          tooltip: _isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
-          onTap: _toggleFullscreen,
+        const SizedBox(height: 2),
+        Row(
+          children: <Widget>[
+            Text(
+              '${_formatDuration(_position)} / ${_formatDuration(duration)}',
+              style: context.text.monoSmall.copyWith(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            _HudPill(
+              label: '${_currentSpeed}x',
+              onTap: _showSpeedPicker,
+            ),
+            const SizedBox(width: AppSpace.sm),
+            _HudIconButton(
+              icon: _isFullscreen
+                  ? Icons.fullscreen_exit_rounded
+                  : Icons.fullscreen_rounded,
+              tooltip: _isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+              onTap: _toggleFullscreen,
+            ),
+          ],
         ),
       ],
     );

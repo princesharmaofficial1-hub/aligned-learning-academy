@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../models/lecture.dart' show LectureNote;
+import '../models/course.dart';
+import '../models/lecture.dart';
 import '../providers/course_provider.dart';
 import '../providers/notes_provider.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/app_components.dart';
+import 'course_detail_screen.dart';
 import 'video_player_screen.dart';
 
 /// "Knowledge Vault": every timestamped note across the catalogue, newest first,
@@ -161,23 +163,48 @@ class _NoteCard extends StatelessWidget {
   }
 
   void _openLecture(BuildContext context) {
-    final course = courses.allCourses.firstWhere(
-      (c) => c.id == note.courseId,
-      orElse: () =>
-          throw StateError('course ${note.courseId} not in catalogue'),
-    );
-    final lecture = course.lectures.firstWhere(
-      (l) => l.id == note.lectureId,
-      orElse: () => throw StateError('lecture ${note.lectureId} not in course'),
-    );
+    Course? course;
+    for (final c in courses.allCourses) {
+      if (c.id == note.courseId) {
+        course = c;
+        break;
+      }
+    }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            VideoPlayerScreen(course: course, initialLecture: lecture),
-      ),
-    );
+    if (course == null) {
+      showAppSnack(
+        context,
+        'This course is no longer in the catalogue',
+        icon: Icons.link_off_rounded,
+        isError: true,
+      );
+      return;
+    }
+
+    Lecture? lecture;
+    for (final l in course.lectures) {
+      if (l.id == note.lectureId) {
+        lecture = l;
+        break;
+      }
+    }
+
+    if (lecture != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              VideoPlayerScreen(course: course!, initialLecture: lecture!),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CourseDetailScreen(course: course),
+        ),
+      );
+    }
   }
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../theme/app_palette.dart';
+
 class AlignedLogoView extends StatelessWidget {
   final double height;
   final double? width;
@@ -15,17 +17,31 @@ class AlignedLogoView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      'assets/images/aligned_logo.svg',
-      height: height,
-      width: width,
-      fit: fit,
-      placeholderBuilder: (context) => Image.asset(
-        'assets/images/aligned_icon.png',
-        height: height,
-        width: width,
-        fit: fit,
-      ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppPalette.lightTextPrimary;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        SvgPicture.asset(
+          'assets/images/aligned_mark.svg',
+          height: height,
+          fit: fit,
+          placeholderBuilder: (context) => Image.asset(
+            'assets/images/aligned_icon.png',
+            height: height,
+            fit: fit,
+          ),
+        ),
+        SizedBox(width: height * 0.25),
+        SvgPicture.asset(
+          'assets/images/aligned_text_full.svg',
+          height: height * 0.72,
+          fit: fit,
+          colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+        ),
+      ],
     );
   }
 }

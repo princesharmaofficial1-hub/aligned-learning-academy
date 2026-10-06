@@ -162,79 +162,85 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // 1. ANIMATED ALIGNED MARK (aligned_mark.svg)
-                          Opacity(
-                            opacity: _markOpacity.value,
-                            child: Transform(
-                              alignment: Alignment.center,
-                              transform: Matrix4.identity()
-                                ..setEntry(3, 2, 0.0015)
-                                ..rotateY(_markTilt.value)
-                                ..scale(_markScale.value),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Soft brand aura glow
-                                  if (_markGlow.value > 0.0)
-                                    Container(
-                                      width: 92,
-                                      height: 82,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF1B77BC)
-                                                .withAlpha((130 * _markGlow.value).toInt()),
-                                            blurRadius: 42,
-                                            spreadRadius: 8,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // 1. ANIMATED ALIGNED MARK (aligned_mark.svg)
+                              Opacity(
+                                opacity: _markOpacity.value,
+                                child: Transform(
+                                  alignment: Alignment.center,
+                                  transform: Matrix4.identity()
+                                    ..setEntry(3, 2, 0.0015)
+                                    ..rotateY(_markTilt.value)
+                                    ..scaleByDouble(_markScale.value, _markScale.value, 1.0, 1.0),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // Soft brand aura glow
+                                      if (_markGlow.value > 0.0)
+                                        Container(
+                                          width: 92,
+                                          height: 82,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF1B77BC)
+                                                    .withAlpha((130 * _markGlow.value).toInt()),
+                                                blurRadius: 42,
+                                                spreadRadius: 8,
+                                              ),
+                                              BoxShadow(
+                                                color: const Color(0xFF4ED44E)
+                                                    .withAlpha((100 * _markGlow.value).toInt()),
+                                                blurRadius: 28,
+                                                spreadRadius: 4,
+                                                offset: const Offset(4, 4),
+                                              ),
+                                            ],
                                           ),
-                                          BoxShadow(
-                                            color: const Color(0xFF4ED44E)
-                                                .withAlpha((100 * _markGlow.value).toInt()),
-                                            blurRadius: 28,
-                                            spreadRadius: 4,
-                                            offset: const Offset(4, 4),
-                                          ),
-                                        ],
+                                        ),
+
+                                      // Crisp Vector Logo Mark
+                                      SvgPicture.asset(
+                                        'assets/images/aligned_mark.svg',
+                                        height: 82,
+                                        fit: BoxFit.contain,
                                       ),
-                                    ),
-
-                                  // Crisp Vector Logo Mark
-                                  SvgPicture.asset(
-                                    'assets/images/aligned_mark.svg',
-                                    height: 82,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 20),
-
-                          // 2. ANIMATED FULL TEXT (aligned_text_full.svg)
-                          Transform.translate(
-                            offset: Offset(_textSlide.value, 0),
-                            child: Opacity(
-                              opacity: _textOpacity.value,
-                              child: ClipRect(
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: _textWipe.value,
-                                  child: SvgPicture.asset(
-                                    'assets/images/aligned_text_full.svg',
-                                    height: 58,
-                                    fit: BoxFit.contain,
+                                    ],
                                   ),
                                 ),
                               ),
-                            ),
+
+                              const SizedBox(width: 20),
+
+                              // 2. ANIMATED FULL TEXT (aligned_text_full.svg)
+                              Transform.translate(
+                                offset: Offset(_textSlide.value, 0),
+                                child: Opacity(
+                                  opacity: _textOpacity.value,
+                                  child: ClipRect(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: _textWipe.value,
+                                      child: SvgPicture.asset(
+                                        'assets/images/aligned_text_full.svg',
+                                        height: 58,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
 
                       const SizedBox(height: 40),

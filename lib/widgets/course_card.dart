@@ -159,22 +159,31 @@ class _CatalogCourseCard extends StatelessWidget {
                   ),
                   Row(
                     children: <Widget>[
-                      _Metric(
-                        icon: Icons.star_rounded,
-                        value: course.rating.toStringAsFixed(1),
-                        color: t.accent,
+                      Expanded(
+                        child: Wrap(
+                          spacing: AppSpace.md,
+                          runSpacing: AppSpace.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: <Widget>[
+                            _Metric(
+                              icon: Icons.star_rounded,
+                              value: course.rating.toStringAsFixed(1),
+                              color: t.accent,
+                            ),
+                            _Metric(
+                              icon: Icons.people_alt_rounded,
+                              value: _compactCount(course.enrolledCount),
+                              color: t.textMuted,
+                            ),
+                            _Metric(
+                              icon: Icons.schedule_rounded,
+                              value: course.estimatedHours,
+                              color: t.textMuted,
+                            ),
+                          ],
+                        ),
                       ),
-                      _Metric(
-                        icon: Icons.people_alt_rounded,
-                        value: _compactCount(course.enrolledCount),
-                        color: t.textMuted,
-                      ),
-                      _Metric(
-                        icon: Icons.schedule_rounded,
-                        value: course.estimatedHours,
-                        color: t.textMuted,
-                      ),
-                      const Spacer(),
+                      const SizedBox(width: AppSpace.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpace.md,
@@ -309,22 +318,33 @@ class _Banner extends StatelessWidget {
               bottom: AppSpace.md,
               child: Row(
                 children: <Widget>[
-                  _ScrimChip(
-                    icon: Icons.play_circle_fill_rounded,
-                    label: course.lectures.isNotEmpty
-                        ? '${course.lectures.length} lectures'
-                        : 'Full syllabus',
-                    color: c.primary,
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Flexible(
+                          child: _ScrimChip(
+                            icon: Icons.play_circle_fill_rounded,
+                            label: course.lectures.isNotEmpty
+                                ? '${course.lectures.length} lectures'
+                                : 'Full syllabus',
+                            color: c.primary,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpace.sm),
+                        Flexible(
+                          child: _ScrimChip(
+                            icon: Icons.description_rounded,
+                            label: course.documents.isNotEmpty
+                                ? '${course.documents.length} docs'
+                                : 'Tech labs',
+                            color: t.green,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: AppSpace.sm),
-                  _ScrimChip(
-                    icon: Icons.description_rounded,
-                    label: course.documents.isNotEmpty
-                        ? '${course.documents.length} docs'
-                        : 'Tech labs',
-                    color: t.green,
-                  ),
-                  const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpace.sm,
@@ -457,13 +477,17 @@ class _ScrimChip extends StatelessWidget {
             Icon(icon, size: AppIcon.xs, color: filled ? Colors.white : color),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: context.text.labelSmall!.copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: filled ? Colors.white : color,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.labelSmall!.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: filled ? Colors.white : color,
+              ),
             ),
           ),
         ],
@@ -701,22 +725,19 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpace.md),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: AppIcon.sm, color: color),
-          const SizedBox(width: 4),
-          Text(
-            value,
-            style: context.text.labelMedium!.copyWith(
-              color: context.colors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: AppIcon.sm, color: color),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: context.text.labelMedium!.copyWith(
+            color: context.colors.onSurface,
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

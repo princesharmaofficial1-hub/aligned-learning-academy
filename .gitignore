@@ -46,3 +46,6 @@ app.*.map.json
 /android/app/release
 .kotlin/
 __pycache__/
+
+# Agent and MCP configs with credentials
+.agents/mcp_config.json

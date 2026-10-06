@@ -102,26 +102,32 @@ class AppSurface extends StatelessWidget {
       ],
     );
 
-    Widget content = DecoratedBox(
-      decoration: decoration,
-      child: Padding(
-        padding: padding ?? EdgeInsets.zero,
-        child: child,
-      ),
+    final inner = Padding(
+      padding: padding ?? EdgeInsets.zero,
+      child: child,
     );
 
+    Widget content;
     if (onTap != null) {
       content = Material(
         color: Colors.transparent,
         borderRadius: radiusAll,
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radiusAll,
-          splashColor: c.primary.withValues(alpha: AppAlpha.wash),
-          highlightColor: c.primary.withValues(alpha: AppAlpha.wash),
-          child: content,
+        child: Ink(
+          decoration: decoration,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radiusAll,
+            splashColor: c.primary.withValues(alpha: AppAlpha.soft),
+            highlightColor: c.primary.withValues(alpha: AppAlpha.wash),
+            child: inner,
+          ),
         ),
+      );
+    } else {
+      content = DecoratedBox(
+        decoration: decoration,
+        child: inner,
       );
     }
 
