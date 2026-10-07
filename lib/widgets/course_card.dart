@@ -372,9 +372,9 @@ class _Banner extends StatelessWidget {
                         Text(
                           'VERIFIED',
                           style: context.text.labelSmall!.copyWith(
-                            fontSize: 9.5,
+                            fontSize: 12,
                             color: t.green,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.6,
                           ),
                         ),
                       ],
@@ -483,7 +483,7 @@ class _ScrimChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: context.text.labelSmall!.copyWith(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
                 color: filled ? Colors.white : color,

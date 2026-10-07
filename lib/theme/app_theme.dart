@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'app_palette.dart';
 import 'app_typography.dart';
 import 'design_tokens.dart';
-import 'tech_palette.dart';
 
 /// Assembles the complete [ThemeData] for Aligned Learning.
 ///
@@ -18,11 +17,6 @@ abstract final class AppTheme {
 
   static ThemeData get dark => _build(Brightness.dark);
   static ThemeData get light => _build(Brightness.light);
-
-  /// Back-compat alias used by older call sites.
-  static ThemeData get darkTheme => dark;
-
-  static ThemeMode get themeMode => ThemeMode.dark;
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
@@ -420,121 +414,4 @@ abstract final class AppTheme {
       borderSide: BorderSide(color: color, width: width),
     );
   }
-
-  // ===========================================================================
-  // Legacy tokens — deprecated.
-  //
-  // Retained only while screens are migrated onto `context.tokens` and the
-  // shared components in `lib/widgets/app_components.dart`. Every one of these
-  // resolves to the dark palette.
-  // ===========================================================================
-
-  static const Color background = AppPalette.darkBackground;
-  static const Color backgroundSecondary = AppPalette.darkBackgroundSunken;
-  static const Color surface = AppPalette.darkSurface;
-  static const Color surfaceElevated = AppPalette.darkSurfaceRaised;
-  static const Color surfaceGlass = AppPalette.darkSurfaceGlass;
-  static const Color cardBorder = AppPalette.darkHairline;
-  static const Color cardBorderGlow = AppPalette.darkHairlineStrong;
-
-  static const Color brandBlue = AppPalette.darkBrandDeep;
-  static const Color brandGreen = AppPalette.darkGreen;
-  static const Color primary = AppPalette.darkBrand;
-  static const Color primaryGlow = AppPalette.darkBrandGlow;
-  static const Color secondary = AppPalette.darkGreen;
-  static const Color secondaryGlow = AppPalette.darkGreenSoft;
-  static const Color accent = AppPalette.darkAccent;
-  static const Color success = AppPalette.darkSuccess;
-  static const Color danger = AppPalette.darkDanger;
-  static const Color purple = AppPalette.darkViolet;
-  static const Color rose = AppPalette.darkDanger;
-
-  static const Color textPrimary = AppPalette.darkTextPrimary;
-  static const Color textSecondary = AppPalette.darkTextSecondary;
-  static const Color textMuted = AppPalette.darkTextMuted;
-
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [AppPalette.darkBrand, AppPalette.darkBrandDeep],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-  static const LinearGradient darkCardGradient = LinearGradient(
-    colors: [AppPalette.darkSurfaceRaised, AppPalette.darkSurface],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  static BoxDecoration luxuryCardDecoration({
-    double radius = AppRadius.lg,
-    Color borderColor = AppPalette.darkHairline,
-    Color? surfaceColor,
-    bool hasGlow = false,
-    Color glowColor = AppPalette.darkBrand,
-  }) {
-    return BoxDecoration(
-      color: surfaceColor ?? AppPalette.darkSurface,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: borderColor, width: 1),
-      boxShadow: <BoxShadow>[
-        if (hasGlow)
-          BoxShadow(
-            color: glowColor.withValues(alpha: 0.20),
-            blurRadius: 22,
-            spreadRadius: -2,
-          ),
-      ],
-    );
-  }
-
-  // ---- Legacy helpers, delegating to the new palettes ----------------------
-  static Color getTechColor(String tech) => TechPalette.colorFor(tech);
-  static IconData getTechIcon(String tech) => TechPalette.iconFor(tech);
-  static Color getLevelColor(String level) => TechPalette.levelColor(level);
-
-  static const Color techPython = AppPalette.darkBrandGlow;
-  static const Color techReact = AppPalette.darkInfo;
-  static const Color techNode = AppPalette.darkGreen;
-  static const Color techAngular = AppPalette.darkDanger;
-  static const Color techFastApi = AppPalette.darkGreenSoft;
-  static const Color techDocker = AppPalette.darkBrandGlow;
-  static const Color techGo = AppPalette.darkInfo;
-  static const Color techRust = AppPalette.darkAccent;
-  static const Color techKafka = AppPalette.darkViolet;
-  static const Color techSecurity = AppPalette.darkViolet;
-}
-
-/// Legacy token surface
-// Kept so untouched screens keep compiling while they are migrated onto
-// `context.tokens`. Values point at the dark palette because dark is the
-// default experience. New code must not use these.
-abstract final class AppThemeLegacy {
-  static const Color background = AppPalette.darkBackground;
-  static const Color backgroundSecondary = AppPalette.darkBackgroundSunken;
-  static const Color surface = AppPalette.darkSurface;
-  static const Color surfaceElevated = AppPalette.darkSurfaceRaised;
-  static const Color surfaceGlass = AppPalette.darkSurfaceGlass;
-  static const Color cardBorder = AppPalette.darkHairline;
-  static const Color cardBorderGlow = AppPalette.darkHairlineStrong;
-
-  static const Color brandBlue = AppPalette.darkBrandDeep;
-  static const Color brandGreen = AppPalette.darkGreen;
-  static const Color primary = AppPalette.darkBrand;
-  static const Color primaryGlow = AppPalette.darkBrandGlow;
-  static const Color secondary = AppPalette.darkGreen;
-  static const Color secondaryGlow = AppPalette.darkGreenSoft;
-  static const Color accent = AppPalette.darkAccent;
-  static const Color success = AppPalette.darkSuccess;
-  static const Color danger = AppPalette.darkDanger;
-  static const Color purple = AppPalette.darkViolet;
-  static const Color rose = AppPalette.darkDanger;
-
-  static const Color textPrimary = AppPalette.darkTextPrimary;
-  static const Color textSecondary = AppPalette.darkTextSecondary;
-  static const Color textMuted = AppPalette.darkTextMuted;
-
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [AppPalette.darkBrand, AppPalette.darkBrandDeep],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
 }

@@ -102,7 +102,7 @@ class _NotesAppBar extends StatelessWidget implements PreferredSizeWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  'KNOWLEDGE VAULT',
+                  'STUDY NOTES',
                   style: context.text.labelSmall!.copyWith(
                     color: c.primary,
                     letterSpacing: 1.4,
@@ -111,7 +111,7 @@ class _NotesAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  'Engineering Notes',
+                  'Notes',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.text.titleLarge,

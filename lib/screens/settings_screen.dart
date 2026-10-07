@@ -134,7 +134,7 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: <Widget>[
                 Text(
-                  'Aligned Learning Academy · Enterprise v1.0.0',
+                  'Aligned Learning · v1.0.0',
                   style: context.text.labelMedium,
                 ),
                 const SizedBox(height: AppSpace.xs),

@@ -106,6 +106,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     isFiltered: provider.searchQuery.isNotEmpty ||
                         provider.selectedTechStack != null,
                     resumeCourse: provider.lastActiveCourse,
+                    totalTracks: provider.allCourses.length,
+                    totalLectures: provider.allCourses.fold<int>(
+                        0, (sum, c) => sum + c.lectures.length),
                     onResetFilters: () => _resetFilters(provider),
                   ),
                 ),
@@ -424,11 +427,15 @@ class _HeroSlot extends StatelessWidget {
   const _HeroSlot({
     required this.isFiltered,
     required this.resumeCourse,
+    required this.totalTracks,
+    required this.totalLectures,
     required this.onResetFilters,
   });
 
   final bool isFiltered;
   final Course? resumeCourse;
+  final int totalTracks;
+  final int totalLectures;
   final VoidCallback onResetFilters;
 
   @override
@@ -442,12 +449,21 @@ class _HeroSlot extends StatelessWidget {
       return _ResumeCard(course: course);
     }
 
-    return const _AcademyBanner();
+    return _AcademyBanner(
+      totalTracks: totalTracks,
+      totalLectures: totalLectures,
+    );
   }
 }
 
 class _AcademyBanner extends StatelessWidget {
-  const _AcademyBanner();
+  const _AcademyBanner({
+    required this.totalTracks,
+    required this.totalLectures,
+  });
+
+  final int totalTracks;
+  final int totalLectures;
 
   @override
   Widget build(BuildContext context) {
@@ -498,15 +514,23 @@ class _AcademyBanner extends StatelessWidget {
               style: context.text.bodyMedium,
             ),
             const SizedBox(height: AppSpace.lg),
-            const Wrap(
+            Wrap(
               spacing: AppSpace.sm,
               runSpacing: AppSpace.sm,
               children: <Widget>[
-                _StatChip(label: '18 tracks', icon: Icons.layers_rounded),
                 _StatChip(
-                    label: '1,200+ HD lectures',
-                    icon: Icons.ondemand_video_rounded),
-                _StatChip(label: '100% free OER', icon: Icons.verified_rounded),
+                  label: '$totalTracks tracks',
+                  icon: Icons.layers_rounded,
+                ),
+                if (totalLectures > 0)
+                  _StatChip(
+                    label: '$totalLectures lectures',
+                    icon: Icons.ondemand_video_rounded,
+                  ),
+                const _StatChip(
+                  label: 'Verified OER',
+                  icon: Icons.verified_rounded,
+                ),
               ],
             ),
           ],

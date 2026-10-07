@@ -139,7 +139,7 @@ class _LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  'Executive Hub',
+                  'My Learning',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.text.titleLarge,
@@ -295,7 +295,7 @@ class _MetricTile extends StatelessWidget {
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: context.text.labelSmall!.copyWith(fontSize: 9.5),
+          style: context.text.labelSmall!.copyWith(fontSize: 12),
         ),
       ],
     );

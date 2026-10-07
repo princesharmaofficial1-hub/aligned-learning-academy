@@ -213,7 +213,7 @@ class _NavDockItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.text.labelSmall!.copyWith(
-                    fontSize: 10.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.1,
                     color: selected ? c.primary : t.textMuted,
