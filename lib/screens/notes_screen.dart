@@ -23,7 +23,7 @@ class NotesScreen extends StatelessWidget {
         final all = notes.notes;
 
         return Scaffold(
-          backgroundColor: context.tokens.canvas,
+          backgroundColor: Colors.transparent,
           appBar: _NotesAppBar(count: all.length),
           body: all.isEmpty
               ? ListView(
@@ -83,7 +83,7 @@ class _NotesAppBar extends StatelessWidget implements PreferredSizeWidget {
     final c = context.colors;
 
     return AppBar(
-      backgroundColor: t.canvas,
+      backgroundColor: Colors.transparent,
       toolbarHeight: 60,
       titleSpacing: AppSpace.gutter,
       title: Row(

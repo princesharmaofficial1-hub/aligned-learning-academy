@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../models/course.dart';
@@ -41,7 +42,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final downloaded = _downloadedLectures(provider);
 
         return Scaffold(
-          backgroundColor: context.tokens.canvas,
+          backgroundColor: Colors.transparent,
           appBar: _LibraryAppBar(
             index: _index,
             onChanged: (value) => setState(() => _index = value),
@@ -111,7 +112,7 @@ class _LibraryAppBar extends StatelessWidget implements PreferredSizeWidget {
     final c = context.colors;
 
     return AppBar(
-      backgroundColor: t.canvas,
+      backgroundColor: Colors.transparent,
       toolbarHeight: 64,
       titleSpacing: AppSpace.gutter,
       title: Row(
@@ -221,35 +222,62 @@ class _MetricsBar extends StatelessWidget {
         child: Row(
           children: <Widget>[
             Expanded(
-              child: _MetricTile(
-                label: 'Active tracks',
-                value: '${provider.inProgressCourses.length}',
-                icon: Icons.bolt_rounded,
-                color: c.primary,
+              child: _animateStat(
+                0,
+                _MetricTile(
+                  label: 'Active tracks',
+                  value: '${provider.inProgressCourses.length}',
+                  icon: Icons.bolt_rounded,
+                  color: c.primary,
+                ),
               ),
             ),
             _Divider(color: t.hairline),
             Expanded(
-              child: _MetricTile(
-                label: 'Lessons done',
-                value: '$completed',
-                icon: Icons.verified_rounded,
-                color: t.green,
+              child: _animateStat(
+                1,
+                _MetricTile(
+                  label: 'Lessons done',
+                  value: '$completed',
+                  icon: Icons.verified_rounded,
+                  color: t.green,
+                ),
               ),
             ),
             _Divider(color: t.hairline),
             Expanded(
-              child: _MetricTile(
-                label: 'Total lectures',
-                value: '$lectures',
-                icon: Icons.library_books_rounded,
-                color: t.accent,
+              child: _animateStat(
+                2,
+                _MetricTile(
+                  label: 'Total lectures',
+                  value: '$lectures',
+                  icon: Icons.library_books_rounded,
+                  color: t.accent,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _animateStat(int index, Widget child) {
+    final delay = Duration(milliseconds: 40 * index);
+    return child
+        .animate()
+        .fadeIn(
+          duration: 300.ms,
+          delay: delay,
+          curve: Curves.easeOut,
+        )
+        .slideY(
+          begin: 0.10,
+          end: 0.0,
+          duration: 300.ms,
+          delay: delay,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 

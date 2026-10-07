@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -90,7 +89,7 @@ abstract final class AppTheme {
 
       // ---- App bar ----------------------------------------------------------
       appBarTheme: AppBarTheme(
-        backgroundColor: tokens.canvas,
+        backgroundColor: tokens.canvas.withValues(alpha: isDark ? 0.90 : 0.84),
         foregroundColor: textPrimary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -354,8 +353,12 @@ abstract final class AppTheme {
       // ---- Motion -----------------------------------------------------------
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: _CinematicPageTransitionsBuilder(),
+          TargetPlatform.iOS: _CinematicPageTransitionsBuilder(),
+          TargetPlatform.macOS: _CinematicPageTransitionsBuilder(),
+          TargetPlatform.windows: _CinematicPageTransitionsBuilder(),
+          TargetPlatform.linux: _CinematicPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: _CinematicPageTransitionsBuilder(),
         },
       ),
 
@@ -363,8 +366,9 @@ abstract final class AppTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: brand,
         foregroundColor: tokens.textOnBrand,
-        elevation: 0,
+        elevation: 2,
         highlightElevation: 0,
+        focusElevation: 2,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
       ),
       sliderTheme: SliderThemeData(
@@ -382,15 +386,37 @@ abstract final class AppTheme {
       iconTheme: IconThemeData(color: textSecondary, size: AppIcon.md),
     );
   }
+static ButtonStyle _filledStyle(AppTokens tokens, Color foreground) {
+    bool isDisabled(Set<WidgetState> states) =>
+        states.contains(WidgetState.disabled);
 
-  static ButtonStyle _filledStyle(AppTokens tokens, Color foreground) {
     return ButtonStyle(
       foregroundColor: WidgetStatePropertyAll(foreground),
       backgroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.disabled)
-            ? tokens.surfaceRaised
-            : tokens.brand,
+        (states) => isDisabled(states) ? tokens.surfaceRaised : tokens.brand,
       ),
+      backgroundBuilder: (context, states, child) {
+        if (isDisabled(states)) {
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: tokens.surfaceRaised,
+              borderRadius: AppRadius.allMd,
+            ),
+            child: child,
+          );
+        }
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.allMd,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[tokens.brand, tokens.brandDeep],
+            ),
+          ),
+          child: child,
+        );
+      },
       minimumSize: const WidgetStatePropertyAll(Size(0, AppSpace.touchTarget)),
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: AppSpace.xl),
@@ -404,7 +430,14 @@ abstract final class AppTheme {
             fontWeight: FontWeight.w700,
             letterSpacing: 0.1),
       ),
-      elevation: const WidgetStatePropertyAll(0),
+      elevation: WidgetStateProperty.resolveWith(
+        (states) => isDisabled(states) ? 0 : 2,
+      ),
+      shadowColor: WidgetStateProperty.resolveWith(
+        (states) => isDisabled(states)
+            ? Colors.transparent
+            : tokens.brand.withValues(alpha: AppAlpha.glow),
+      ),
     );
   }
 
@@ -412,6 +445,42 @@ abstract final class AppTheme {
     return OutlineInputBorder(
       borderRadius: AppRadius.allMd,
       borderSide: BorderSide(color: color, width: width),
+    );
+  }
+}
+
+/// Cinematic page transition: soft rise + fade + gentle scale on the standard
+/// emphasized curve. Applied on every platform so navigation reads as one
+/// premium gesture, while [PageTransitionsTheme] fallbacks stay untouched.
+class _CinematicPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _CinematicPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.emphasized,
+      reverseCurve: AppMotion.emphasized.flipped,
+    );
+
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.03),
+          end: Offset.zero,
+        ).animate(curved),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.985, end: 1).animate(curved),
+          child: child,
+        ),
+      ),
     );
   }
 }

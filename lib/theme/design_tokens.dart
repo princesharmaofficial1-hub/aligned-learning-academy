@@ -89,6 +89,49 @@ abstract final class AppAlpha {
   static const double glow = 0.30;
 }
 
+/// Cinematic visual layer.
+///
+/// Everything here is derived from the semantic tokens — screens never
+/// hardcode gradients or glows. All values are theme-aware.
+extension AppVisual on BuildContext {
+  /// Full-bleed canvas: a brand-tinted top glow fading into the base canvas.
+  /// Used behind the home destinations and as a screen wash behind content.
+  LinearGradient get canvasGradient {
+    final t = tokens;
+    final top = isDarkMode
+        ? Color.alphaBlend(
+            AppPalette.darkBrand.withValues(alpha: 0.12), t.canvas)
+        : Color.alphaBlend(
+            AppPalette.lightBrand.withValues(alpha: 0.05), t.canvas);
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: <Color>[top, t.canvas, t.canvas],
+      stops: const <double>[0.0, 0.4, 1.0],
+    );
+  }
+
+  /// Brand glow blob — the ambient backdrop's warm light.
+  Color get ambientGlow => isDarkMode
+      ? AppPalette.darkBrand.withValues(alpha: 0.16)
+      : AppPalette.lightBrand.withValues(alpha: 0.10);
+
+  /// Violet counter-glow, sits in the opposite corner for depth.
+  Color get ambientGlowSecondary => isDarkMode
+      ? AppPalette.darkViolet.withValues(alpha: 0.12)
+      : AppPalette.lightViolet.withValues(alpha: 0.08);
+
+  /// Hairline top-edge highlight that gives elevated cards a frosted rim.
+  Color get topEdgeHighlight => isDarkMode
+      ? Colors.white.withValues(alpha: 0.06)
+      : Colors.black.withValues(alpha: 0.05);
+
+  /// Brand radiance cast behind primary controls.
+  Color get buttonGlow => isDarkMode
+      ? AppPalette.darkBrand.withValues(alpha: 0.42)
+      : AppPalette.lightBrand.withValues(alpha: 0.30);
+}
+
 /// Semantic tokens that Material 3's [ColorScheme] has no slot for.
 ///
 /// Read them with `context.tokens`.

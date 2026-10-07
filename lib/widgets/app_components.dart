@@ -1,6 +1,8 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
@@ -9,7 +11,7 @@ import '../theme/design_tokens.dart';
 ///
 /// Replaces the previous `AppTheme.luxuryCardDecoration()` pattern: one
 /// elevation ramp, one border treatment, one radius.
-class AppSurface extends StatelessWidget {
+class AppSurface extends StatefulWidget {
   const AppSurface({
     super.key,
     required this.child,
@@ -63,39 +65,64 @@ class AppSurface extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<AppSurface> createState() => _AppSurfaceState();
+}
+
+class _AppSurfaceState extends State<AppSurface> {
+  static const double _pressedScale = 0.985;
+
+  bool _pressed = false;
+
+  void _handleTap() {
+    if (widget.onTap == null) return;
+    HapticFeedback.lightImpact();
+    widget.onTap!();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final c = context.colors;
 
-    final base = color ??
-        (selected
+    final base = widget.color ??
+        (widget.selected
             ? c.primary.withValues(alpha: 0.10)
-            : elevated
+            : widget.elevated
                 ? t.surfaceRaised
                 : t.surface);
 
-    final borderSide = border ??
+    final borderSide = widget.border ??
         BorderSide(
-          color: selected ? c.primary.withValues(alpha: 0.55) : t.hairline,
-          width: selected ? 1.4 : 1,
+          color:
+              widget.selected ? c.primary.withValues(alpha: 0.55) : t.hairline,
+          width: widget.selected ? 1.4 : 1,
         );
 
-    final radiusAll = BorderRadius.circular(radius);
+    final radiusAll = BorderRadius.circular(widget.radius);
+
+    final border = widget.elevated && !widget.selected
+        ? Border(
+            top: BorderSide(color: context.topEdgeHighlight, width: 1),
+            left: borderSide,
+            right: borderSide,
+            bottom: borderSide,
+          )
+        : Border.fromBorderSide(borderSide);
 
     final decoration = BoxDecoration(
-      color: gradient == null ? base : null,
-      gradient: gradient,
+      color: widget.gradient == null ? base : null,
+      gradient: widget.gradient,
       borderRadius: radiusAll,
-      border: Border.fromBorderSide(borderSide),
+      border: border,
       boxShadow: <BoxShadow>[
         BoxShadow(
           color: t.shadowSoft,
           blurRadius: 18,
           offset: const Offset(0, 6),
         ),
-        if (glow != null)
+        if (widget.glow != null)
           BoxShadow(
-            color: glow!.withValues(alpha: AppAlpha.soft),
+            color: widget.glow!.withValues(alpha: AppAlpha.soft),
             blurRadius: 22,
             spreadRadius: -2,
           ),
@@ -103,35 +130,46 @@ class AppSurface extends StatelessWidget {
     );
 
     final inner = Padding(
-      padding: padding ?? EdgeInsets.zero,
-      child: child,
+      padding: widget.padding ?? EdgeInsets.zero,
+      child: widget.child,
     );
 
-    Widget content;
-    if (onTap != null) {
-      content = Material(
+    final AnimatedScale scale = AnimatedScale(
+      duration: AppMotion.fast,
+      curve: AppMotion.emphasized,
+      scale: _pressed ? _pressedScale : 1.0,
+      child: Material(
         color: Colors.transparent,
         borderRadius: radiusAll,
         clipBehavior: Clip.antiAlias,
         child: Ink(
           decoration: decoration,
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap == null ? null : _handleTap,
             borderRadius: radiusAll,
             splashColor: c.primary.withValues(alpha: AppAlpha.soft),
             highlightColor: c.primary.withValues(alpha: AppAlpha.wash),
             child: inner,
           ),
         ),
-      );
-    } else {
-      content = DecoratedBox(
-        decoration: decoration,
-        child: inner,
-      );
-    }
+      ),
+    );
 
-    return margin == null ? content : Padding(padding: margin!, child: content);
+    final content = widget.onTap == null
+        ? DecoratedBox(
+            decoration: decoration,
+            child: inner,
+          )
+        : Listener(
+            onPointerDown: (_) => setState(() => _pressed = true),
+            onPointerUp: (_) => setState(() => _pressed = false),
+            onPointerCancel: (_) => setState(() => _pressed = false),
+            child: scale,
+          );
+
+    return widget.margin == null
+        ? content
+        : Padding(padding: widget.margin!, child: content);
   }
 }
 
@@ -190,6 +228,98 @@ class GlassSurface extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Full-bleed cinematic canvas: gradient base + slowly drifting brand glows.
+///
+/// Sits behind the home destinations so every tab reads as one premium
+/// surface. The blobs freeze entirely when the user enables reduce motion.
+class AmbientBackdrop extends StatelessWidget {
+  const AmbientBackdrop({super.key});
+
+  static const double _brandRadius = 420;
+  static const double _violetRadius = 360;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          DecoratedBox(
+            decoration: BoxDecoration(gradient: context.canvasGradient),
+          ),
+          _DriftBlob(
+            radius: _brandRadius,
+            color: context.ambientGlow,
+            top: -160,
+            right: -140,
+          ),
+          _DriftBlob(
+            radius: _violetRadius,
+            color: context.ambientGlowSecondary,
+            bottom: -160,
+            left: -110,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Slowly oscillating radial glow. Static when reduce motion is on.
+class _DriftBlob extends StatelessWidget {
+  const _DriftBlob({
+    required this.radius,
+    required this.color,
+    this.top,
+    this.right,
+    this.bottom,
+    this.left,
+  });
+
+  final double radius;
+  final Color color;
+  final double? top;
+  final double? right;
+  final double? bottom;
+  final double? left;
+
+  @override
+  Widget build(BuildContext context) {
+    final blob = Container(
+      width: radius,
+      height: radius,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: <Color>[color, color.withValues(alpha: 0)],
+          stops: const <double>[0.0, 1.0],
+        ),
+      ),
+    );
+
+    return Positioned(
+      top: top,
+      right: right,
+      bottom: bottom,
+      left: left,
+      child: MediaQuery.disableAnimationsOf(context)
+          ? blob
+          : Animate(
+              onPlay: (controller) => controller.repeat(reverse: true),
+              effects: <Effect<dynamic>>[
+                MoveEffect(
+                  begin: const Offset(0, 26),
+                  end: const Offset(0, -26),
+                  duration: const Duration(seconds: 20),
+                  curve: Curves.easeInOutSine,
+                ),
+              ],
+              child: blob,
+            ),
     );
   }
 }
@@ -271,7 +401,13 @@ class AppPill extends StatelessWidget {
       color: Colors.transparent,
       borderRadius: AppRadius.allPill,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: content),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap!();
+        },
+        child: content,
+      ),
     );
   }
 }
@@ -468,7 +604,6 @@ class AppEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final c = context.colors;
 
     final ringSize = compact ? 64.0 : 88.0;
@@ -514,7 +649,6 @@ class AppEmptyState extends StatelessWidget {
                 label: Text(actionLabel!),
               ),
             ],
-            if (t.canvas == t.canvas) const SizedBox.shrink(),
           ],
         ),
       ),
@@ -603,6 +737,12 @@ class AppButton extends StatelessWidget {
     final accent = color ?? c.primary;
 
     final enabled = onPressed != null && !loading;
+    final action = enabled
+        ? () {
+            HapticFeedback.lightImpact();
+            onPressed!();
+          }
+        : null;
 
     final fg = variant == AppButtonVariant.filled ? t.textOnBrand : accent;
 
@@ -635,7 +775,7 @@ class AppButton extends StatelessWidget {
 
     final button = switch (variant) {
       AppButtonVariant.filled => FilledButton(
-          onPressed: enabled ? onPressed : null,
+          onPressed: action,
           style: FilledButton.styleFrom(
             backgroundColor: accent,
             foregroundColor: fg,
@@ -647,7 +787,7 @@ class AppButton extends StatelessWidget {
           child: child,
         ),
       AppButtonVariant.outlined => OutlinedButton(
-          onPressed: enabled ? onPressed : null,
+          onPressed: action,
           style: OutlinedButton.styleFrom(
             foregroundColor: fg,
             side: BorderSide(color: accent.withValues(alpha: AppAlpha.medium)),
@@ -657,7 +797,7 @@ class AppButton extends StatelessWidget {
           child: child,
         ),
       AppButtonVariant.ghost => TextButton(
-          onPressed: enabled ? onPressed : null,
+          onPressed: action,
           style: TextButton.styleFrom(
             foregroundColor: fg,
             minimumSize: const Size(0, AppSpace.touchTarget),
@@ -666,7 +806,7 @@ class AppButton extends StatelessWidget {
           child: child,
         ),
       AppButtonVariant.danger => FilledButton(
-          onPressed: enabled ? onPressed : null,
+          onPressed: action,
           style: FilledButton.styleFrom(
             backgroundColor: t.danger,
             foregroundColor: Colors.white,
@@ -684,142 +824,6 @@ class AppButton extends StatelessWidget {
 }
 
 enum AppButtonVariant { filled, outlined, ghost, danger }
-
-/// Screen header used by every non-AppBar page: icon chip, title, subtitle,
-/// and an optional trailing action. Removes three duplicated ~50-line blocks.
-class AppPageHeader extends StatelessWidget {
-  const AppPageHeader({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onBack,
-    this.leading,
-    this.bottom,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onBack;
-  final Widget? leading;
-  final Widget? bottom;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.gutter,
-        AppSpace.md,
-        AppSpace.gutter,
-        AppSpace.lg,
-      ),
-      decoration: BoxDecoration(
-        color: context.tokens.canvas,
-        border: Border(bottom: BorderSide(color: context.tokens.hairline)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                if (onBack != null) ...<Widget>[
-                  _RoundIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    tooltip: 'Back',
-                    onTap: onBack,
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                ] else if (leading != null) ...<Widget>[
-                  leading!,
-                  const SizedBox(width: AppSpace.md),
-                ],
-                AppIconTile(
-                    icon: icon,
-                    color: c.primary,
-                    size: 40,
-                    iconSize: AppIcon.md),
-                const SizedBox(width: AppSpace.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.titleLarge,
-                      ),
-                      if (subtitle != null) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.text.bodySmall,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-            if (bottom != null) ...<Widget>[
-              const SizedBox(height: AppSpace.lg),
-              bottom!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Circular icon button with a guaranteed ≥48dp hit area.
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.tooltip,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: context.tokens.surfaceRaised,
-        shape: const CircleBorder(
-          side: BorderSide(color: Color(0x14FFFFFF)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: AppSpace.touchTarget,
-            height: AppSpace.touchTarget,
-            child: Icon(
-              icon,
-              size: AppIcon.md,
-              color: context.colors.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Public circular icon button with a 48dp hit area and a tooltip label.
 class AppIconButton extends StatelessWidget {
@@ -995,35 +999,6 @@ class _Segment extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Horizontally scrollable chip row with consistent edge padding.
-class AppChipRow extends StatelessWidget {
-  const AppChipRow({
-    super.key,
-    required this.children,
-    this.padding = const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
-    this.spacing = AppSpace.sm,
-  });
-
-  final List<Widget> children;
-  final EdgeInsetsGeometry padding;
-  final double spacing;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: padding,
-        physics: const BouncingScrollPhysics(),
-        itemCount: children.length,
-        separatorBuilder: (_, __) => SizedBox(width: spacing),
-        itemBuilder: (context, i) => Center(child: children[i]),
       ),
     );
   }

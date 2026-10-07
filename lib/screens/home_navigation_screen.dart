@@ -67,13 +67,19 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
       child: Scaffold(
         extendBody: true,
         resizeToAvoidBottomInset: false,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: const <Widget>[
-            ExploreScreen(),
-            LibraryScreen(),
-            NotesScreen(),
-            SettingsScreen(),
+        body: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const AmbientBackdrop(),
+            IndexedStack(
+              index: _currentIndex,
+              children: const <Widget>[
+                ExploreScreen(),
+                LibraryScreen(),
+                NotesScreen(),
+                SettingsScreen(),
+              ],
+            ),
           ],
         ),
         bottomNavigationBar: _NavDock(

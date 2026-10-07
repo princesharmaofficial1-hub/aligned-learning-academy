@@ -17,7 +17,7 @@ class SettingsScreen extends StatelessWidget {
     final t = context.tokens;
 
     return Scaffold(
-      backgroundColor: t.canvas,
+      backgroundColor: Colors.transparent,
       appBar: const _SettingsAppBar(),
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -181,7 +181,7 @@ class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
     final c = context.colors;
 
     return AppBar(
-      backgroundColor: t.canvas,
+      backgroundColor: Colors.transparent,
       toolbarHeight: 60,
       titleSpacing: AppSpace.gutter,
       title: Row(

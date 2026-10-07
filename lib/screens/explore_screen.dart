@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../models/course.dart';
@@ -60,7 +61,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.tokens.canvas,
+      backgroundColor: Colors.transparent,
       appBar: _ExploreAppBar(
         liveTrackCount: context.watch<CourseProvider>().allCourses.length,
       ),
@@ -107,8 +108,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         provider.selectedTechStack != null,
                     resumeCourse: provider.lastActiveCourse,
                     totalTracks: provider.allCourses.length,
-                    totalLectures: provider.allCourses.fold<int>(
-                        0, (sum, c) => sum + c.lectures.length),
+                    totalLectures: provider.allCourses
+                        .fold<int>(0, (sum, c) => sum + c.lectures.length),
                     onResetFilters: () => _resetFilters(provider),
                   ),
                 ),
@@ -330,7 +331,7 @@ class _ExploreAppBar extends StatelessWidget implements PreferredSizeWidget {
     final t = context.tokens;
 
     return AppBar(
-      backgroundColor: t.canvas,
+      backgroundColor: Colors.transparent,
       toolbarHeight: 60,
       titleSpacing: AppSpace.gutter,
       title: const AlignedLogoView(height: 28, fit: BoxFit.contain),
@@ -472,68 +473,95 @@ class _AcademyBanner extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
-      child: AppSurface(
-        radius: AppRadius.xl,
-        glow: c.primary,
-        border: BorderSide(color: c.primary.withValues(alpha: 0.30)),
-        gradient: LinearGradient(
-          colors: <Color>[
-            Color.alphaBlend(c.primary.withValues(alpha: 0.16), t.surface),
-            t.surface,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                AppPill(
-                  label: 'ALIGNED LEARNING',
-                  icon: Icons.circle,
-                  color: t.green,
-                  dense: true,
-                ),
-                const Spacer(),
-                Icon(Icons.auto_awesome_rounded,
-                    color: t.accent, size: AppIcon.sm),
-              ],
-            ),
-            const SizedBox(height: AppSpace.lg),
-            Text(
-              'Production-grade engineering upskilling',
-              style: context.text.headlineSmall,
-            ),
-            const SizedBox(height: AppSpace.sm),
-            Text(
-              'Continuous technical mastery across cloud, distributed '
-              'microservices, AI and systems programming — from MIT and other '
-              'leading open institutions.',
-              style: context.text.bodyMedium,
-            ),
-            const SizedBox(height: AppSpace.lg),
-            Wrap(
-              spacing: AppSpace.sm,
-              runSpacing: AppSpace.sm,
-              children: <Widget>[
-                _StatChip(
-                  label: '$totalTracks tracks',
-                  icon: Icons.layers_rounded,
-                ),
-                if (totalLectures > 0)
-                  _StatChip(
-                    label: '$totalLectures lectures',
-                    icon: Icons.ondemand_video_rounded,
+      child: Animate(
+        delay: 80.ms,
+        effects: <Effect<dynamic>>[
+          FadeEffect(duration: AppMotion.slow),
+          SlideEffect(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+            duration: AppMotion.slow,
+            curve: AppMotion.emphasized,
+          ),
+        ],
+        child: AppSurface(
+          radius: AppRadius.xl,
+          glow: c.primary,
+          border: BorderSide(color: c.primary.withValues(alpha: 0.30)),
+          gradient: LinearGradient(
+            colors: <Color>[
+              Color.alphaBlend(c.primary.withValues(alpha: 0.16), t.surface),
+              t.surface,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          padding: const EdgeInsets.all(AppSpace.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  AppPill(
+                    label: 'ALIGNED LEARNING',
+                    icon: Icons.circle,
+                    color: t.green,
+                    dense: true,
                   ),
-                const _StatChip(
-                  label: 'Verified OER',
-                  icon: Icons.verified_rounded,
-                ),
-              ],
-            ),
-          ],
+                  const Spacer(),
+                  Icon(Icons.auto_awesome_rounded,
+                      color: t.accent, size: AppIcon.sm),
+                ],
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Text(
+                'Production-grade engineering upskilling',
+                style: context.text.headlineSmall,
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                'Continuous technical mastery across cloud, distributed '
+                'microservices, AI and systems programming — from MIT and other '
+                'leading open institutions.',
+                style: context.text.bodyMedium,
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: <Widget>[
+                  Animate(
+                    effects: <Effect<dynamic>>[
+                      FadeEffect(delay: 260.ms, duration: AppMotion.normal),
+                    ],
+                    child: _StatChip(
+                      label: '$totalTracks tracks',
+                      icon: Icons.layers_rounded,
+                    ),
+                  ),
+                  if (totalLectures > 0)
+                    Animate(
+                      effects: <Effect<dynamic>>[
+                        FadeEffect(delay: 320.ms, duration: AppMotion.normal),
+                      ],
+                      child: _StatChip(
+                        label: '$totalLectures lectures',
+                        icon: Icons.ondemand_video_rounded,
+                      ),
+                    ),
+                  Animate(
+                    effects: <Effect<dynamic>>[
+                      FadeEffect(delay: 380.ms, duration: AppMotion.normal),
+                    ],
+                    child: const _StatChip(
+                      label: 'Verified OER',
+                      icon: Icons.verified_rounded,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -577,61 +605,73 @@ class _ResumeCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
-      child: AppSurface(
-        radius: AppRadius.xl,
-        selected: true,
-        glow: c.primary,
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                AppPill(
-                  label: 'CONTINUE LEARNING',
-                  icon: Icons.play_circle_fill_rounded,
-                  color: t.green,
-                  dense: true,
-                ),
-                const Spacer(),
-                Text(
-                  '${(course.overallProgress * 100).round()}% done',
-                  style: context.text.labelMedium!.copyWith(color: t.green),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpace.md),
-            Text(
-              course.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: context.text.titleLarge,
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              lecture.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: context.text.bodySmall,
-            ),
-            const SizedBox(height: AppSpace.lg),
-            AppProgressBar(value: course.overallProgress, color: t.green),
-            const SizedBox(height: AppSpace.lg),
-            AppButton(
-              label: 'Resume lecture',
-              icon: Icons.play_arrow_rounded,
-              expand: false,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => VideoPlayerScreen(
-                    course: course,
-                    initialLecture: lecture,
+      child: Animate(
+        delay: 80.ms,
+        effects: <Effect<dynamic>>[
+          FadeEffect(duration: AppMotion.slow),
+          SlideEffect(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+            duration: AppMotion.slow,
+            curve: AppMotion.emphasized,
+          ),
+        ],
+        child: AppSurface(
+          radius: AppRadius.xl,
+          selected: true,
+          glow: c.primary,
+          padding: const EdgeInsets.all(AppSpace.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  AppPill(
+                    label: 'CONTINUE LEARNING',
+                    icon: Icons.play_circle_fill_rounded,
+                    color: t.green,
+                    dense: true,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${(course.overallProgress * 100).round()}% done',
+                    style: context.text.labelMedium!.copyWith(color: t.green),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.md),
+              Text(
+                course.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.titleLarge,
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                lecture.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.bodySmall,
+              ),
+              const SizedBox(height: AppSpace.lg),
+              AppProgressBar(value: course.overallProgress, color: t.green),
+              const SizedBox(height: AppSpace.lg),
+              AppButton(
+                label: 'Resume lecture',
+                icon: Icons.play_arrow_rounded,
+                expand: false,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => VideoPlayerScreen(
+                      course: course,
+                      initialLecture: lecture,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -664,9 +704,7 @@ class _TechChip extends StatelessWidget {
       selected: selected,
       label: 'Filter by $tech',
       child: Material(
-        color: selected
-            ? color.withValues(alpha: 0.16)
-            : t.surfaceRaised,
+        color: selected ? color.withValues(alpha: 0.16) : t.surfaceRaised,
         borderRadius: AppRadius.allPill,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
