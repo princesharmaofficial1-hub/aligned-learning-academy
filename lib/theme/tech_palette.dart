@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'app_palette.dart';
@@ -171,19 +173,93 @@ abstract final class TechPalette {
     'css3': Icons.brush_rounded,
   };
 
-  static Color colorFor(String tech) =>
-      _colors[tech.trim().toLowerCase()] ?? AppPalette.darkBrandGlow;
+  static Color colorFor(String tech, {Brightness brightness = Brightness.dark}) =>
+      TechContrast.ensure(
+        _colors[tech.trim().toLowerCase()] ?? AppPalette.darkBrandGlow,
+        brightness,
+      );
 
   static IconData iconFor(String tech) =>
       _icons[tech.trim().toLowerCase()] ?? Icons.terminal_rounded;
 
-  static Color levelColor(String level) => switch (level.trim().toLowerCase()) {
-        'beginner' => AppPalette.darkBrandGlow,
-        'intermediate' => AppPalette.darkGreen,
-        'advanced' => AppPalette.darkViolet,
-        'architect' || 'expert' => AppPalette.darkAccent,
-        _ => AppPalette.darkGreen,
+  static Color levelColor(String level,
+          {Brightness brightness = Brightness.dark}) =>
+      switch (level.trim().toLowerCase()) {
+        'beginner' => TechContrast.ensure(
+            AppPalette.darkBrandGlow, brightness),
+        'intermediate' => TechContrast.ensure(AppPalette.darkGreen, brightness),
+        'advanced' => TechContrast.ensure(AppPalette.darkViolet, brightness),
+        'architect' || 'expert' => TechContrast.ensure(
+            AppPalette.darkAccent, brightness),
+        _ => TechContrast.ensure(AppPalette.darkGreen, brightness),
       };
+}
+
+/// Resolves accent colours so they pass 4.5:1 contrast on the canvas of the
+/// active theme.
+///
+/// The brand/tech accents are authored against the dark palette. In light mode
+/// they wash out (e.g. `#56C2F5` on white ≈ 1.9:1), and a few dark brand
+/// colours (`#092E20`) fail in dark mode. [ensure] moves the colour away from
+/// the canvas — toward black on a light canvas, toward white on a dark one —
+/// until the WCAG ratio is met, preserving hue.
+abstract final class TechContrast {
+  static const double minRatio = 4.5;
+
+  static Color ensure(Color color, Brightness brightness) {
+    final canvas = brightness == Brightness.light
+        ? AppPalette.lightBackground
+        : AppPalette.darkBackground;
+    return ensureOn(color, canvas);
+  }
+
+  /// Darkens/lightens [color] until it contrasts [background] by [minRatio].
+  static Color ensureOn(Color color, Color background,
+      {double minRatio = TechContrast.minRatio}) {
+    final towardLight = _luminance(background) < 0.4;
+    final limit = towardLight ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
+
+    var result = color;
+    for (var i = 0; i < 24 && _contrast(result, background) < minRatio; i++) {
+      result = Color.lerp(result, limit, 0.10)!;
+    }
+    return result;
+  }
+
+  /// WCAG 2.1 relative luminance.
+  static double _luminance(Color color) {
+    double channel(double v) {
+      final c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+    }
+
+    return 0.2126 * channel(color.r * 255) +
+        0.7152 * channel(color.g * 255) +
+        0.0722 * channel(color.b * 255);
+  }
+
+  static double _contrast(Color a, Color b) {
+    final la = _luminance(a);
+    final lb = _luminance(b);
+    final lighter = la > lb ? la : lb;
+    final darker = la > lb ? lb : la;
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+}
+
+/// Theme-aware accessors so screens never hardcode an accent against a
+/// brightness they don't control.
+extension TechPaletteContext on BuildContext {
+  Brightness get _accentBrightness => Theme.of(this).brightness;
+
+  Color techColor(String tech) =>
+      TechPalette.colorFor(tech, brightness: _accentBrightness);
+
+  Color levelColor(String level) =>
+      TechPalette.levelColor(level, brightness: _accentBrightness);
+
+  Color docColor(String type) =>
+      DocPalette.colorFor(type, brightness: _accentBrightness);
 }
 
 /// Presentation metadata for course resource documents.
@@ -198,15 +274,18 @@ abstract final class DocPalette {
         _ => Icons.insert_drive_file_rounded,
       };
 
-  static Color colorFor(String type) => switch (type.trim().toLowerCase()) {
-        'pdf' || 'book' || 'paper' => AppPalette.darkDanger,
-        'code' || 'lab' || 'notebook' => AppPalette.darkInfo,
-        'cheatsheet' || 'cheat sheet' || 'sheet' => AppPalette.darkAccent,
-        'slides' || 'deck' => AppPalette.darkViolet,
-        'video' => AppPalette.darkBrandGlow,
-        'link' || 'url' => AppPalette.darkGreenSoft,
-        _ => AppPalette.darkTextSecondary,
-      };
+  static Color colorFor(String type, {Brightness brightness = Brightness.dark}) {
+    final raw = switch (type.trim().toLowerCase()) {
+      'pdf' || 'book' || 'paper' => AppPalette.darkDanger,
+      'code' || 'lab' || 'notebook' => AppPalette.darkInfo,
+      'cheatsheet' || 'cheat sheet' || 'sheet' => AppPalette.darkAccent,
+      'slides' || 'deck' => AppPalette.darkViolet,
+      'video' => AppPalette.darkBrandGlow,
+      'link' || 'url' => AppPalette.darkGreenSoft,
+      _ => AppPalette.darkTextSecondary,
+    };
+    return TechContrast.ensure(raw, brightness);
+  }
 
   static String labelFor(String type) => switch (type.trim().toLowerCase()) {
         'pdf' || 'book' || 'paper' => 'PDF',

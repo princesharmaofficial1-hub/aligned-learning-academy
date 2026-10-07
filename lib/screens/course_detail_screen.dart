@@ -360,7 +360,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     AppPill(
                       label: tech,
                       icon: TechPalette.iconFor(tech),
-                      color: TechPalette.colorFor(tech),
+                      color: context.techColor(tech),
                     ),
                 ],
               ),
@@ -507,7 +507,7 @@ class _HeroBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final c = context.colors;
-    final levelColor = TechPalette.levelColor(course.level);
+    final levelColor = context.levelColor(course.level);
 
     return Stack(
       fit: StackFit.expand,
@@ -1138,7 +1138,7 @@ class _ResourceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final color = DocPalette.colorFor(doc.type);
+    final color = context.docColor(doc.type);
 
     return AppSurface(
       radius: AppRadius.md,

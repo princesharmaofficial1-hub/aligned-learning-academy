@@ -141,7 +141,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       itemBuilder: (context, index) {
                         final tech = provider.popularTechStacks[index];
                         final selected = provider.selectedTechStack == tech;
-                        final color = TechPalette.colorFor(tech);
+                        final color = context.techColor(tech);
 
                         return _TechChip(
                           tech: tech,
@@ -475,7 +475,7 @@ class _AcademyBanner extends StatelessWidget {
             Row(
               children: <Widget>[
                 AppPill(
-                  label: 'ALIGNED ENTERPRISE ACADEMY',
+                  label: 'ALIGNED LEARNING',
                   icon: Icons.circle,
                   color: t.green,
                   dense: true,
@@ -789,7 +789,7 @@ class _ActiveFilterBar extends StatelessWidget {
                   AppPill(
                     label: tech!,
                     icon: TechPalette.iconFor(tech!),
-                    color: TechPalette.colorFor(tech!),
+                    color: context.techColor(tech!),
                     dense: true,
                     selected: true,
                     onTap: onClearTech,

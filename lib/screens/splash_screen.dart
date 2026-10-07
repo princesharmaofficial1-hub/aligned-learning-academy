@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import 'home_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -133,21 +132,20 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF070A12), // Pure deep obsidian dark
+      backgroundColor: t.canvas,
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Sleek dark linear gradient background (No green circles or halos)
+          // Subtle vertical lift from raised surface into the canvas.
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF0E1626), // Subtle navy-slate top
-                  Color(0xFF070A12), // Obsidian bottom
-                ],
+                colors: [t.surfaceRaised, t.canvas],
               ),
             ),
           ),
@@ -191,13 +189,13 @@ class _SplashScreenState extends State<SplashScreen>
                                             shape: BoxShape.circle,
                                             boxShadow: [
                                               BoxShadow(
-                                                color: const Color(0xFF1B77BC)
+                                                color: t.brandDeep
                                                     .withAlpha((130 * _markGlow.value).toInt()),
                                                 blurRadius: 42,
                                                 spreadRadius: 8,
                                               ),
                                               BoxShadow(
-                                                color: const Color(0xFF4ED44E)
+                                                color: t.green
                                                     .withAlpha((100 * _markGlow.value).toInt()),
                                                 blurRadius: 28,
                                                 spreadRadius: 4,
@@ -212,6 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
                                         'assets/images/aligned_mark.svg',
                                         height: 82,
                                         fit: BoxFit.contain,
+                                        semanticsLabel: 'Aligned Learning logo mark',
                                       ),
                                     ],
                                   ),
@@ -233,6 +232,7 @@ class _SplashScreenState extends State<SplashScreen>
                                         'assets/images/aligned_text_full.svg',
                                         height: 58,
                                         fit: BoxFit.contain,
+                                        semanticsLabel: 'Aligned Learning wordmark',
                                       ),
                                     ),
                                   ),
@@ -251,7 +251,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Minimal tech line divider
+                            // Minimal brand line divider
                             Container(
                               width: 44,
                               height: 1.4,
@@ -260,7 +260,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 gradient: LinearGradient(
                                   colors: [
                                     Colors.transparent,
-                                    AppTheme.brandBlue.withAlpha(220),
+                                    context.colors.primary,
                                     Colors.transparent,
                                   ],
                                 ),
@@ -268,12 +268,11 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'ENTERPRISE TECHNICAL ACADEMY',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                              'ALIGNED LEARNING',
+                              style: context.text.labelSmall!.copyWith(
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: 3.4,
-                                color: AppTheme.textSecondary.withAlpha(200),
+                                color: t.textSecondary,
                               ),
                             ),
                           ],
@@ -296,9 +295,8 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _taglineOpacity.value,
                   child: Text(
                     'Continuous Learning Environment',
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: AppTheme.textMuted.withAlpha(160),
+                    style: context.text.labelSmall!.copyWith(
+                      color: t.textMuted,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.5,
                     ),

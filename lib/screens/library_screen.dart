@@ -518,7 +518,7 @@ class _InProgressCard extends StatelessWidget {
       orElse: () => course.lectures.first,
     );
 
-    final levelColor = TechPalette.levelColor(course.level);
+    final levelColor = context.levelColor(course.level);
 
     return AppSurface(
       radius: AppRadius.lg,
@@ -629,7 +629,7 @@ class _SavedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final color = TechPalette.colorFor(course.category);
+    final color = context.techColor(course.category);
 
     return AppSurface(
       radius: AppRadius.md,

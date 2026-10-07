@@ -9,8 +9,8 @@ import 'app_palette.dart';
 /// * **Body / UI** → Inter (high x-height, excellent at small sizes, technical).
 /// * **Code / metadata** → JetBrains Mono for anything that looks like data.
 ///
-/// Nothing in this ramp goes below 12dp except [AppType.overline], which is
-/// uppercase + letter-spaced so it stays legible at that size.
+/// Nothing in this ramp goes below 12dp. Uppercase overlines keep extra
+/// letter-spacing so they stay legible at the floor size.
 abstract final class AppType {
   static const double display = 34;
   static const double h1 = 28;
@@ -21,7 +21,7 @@ abstract final class AppType {
   static const double bodySm = 13.5;
   static const double label = 13;
   static const double caption = 12;
-  static const double overline = 11;
+  static const double overline = 12;
 }
 
 /// Named text styles that sit outside the Material [TextTheme] slots but recur

@@ -1495,7 +1495,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             AppPill(
               label: course.level,
               icon: Icons.signal_cellular_alt_rounded,
-              color: TechPalette.levelColor(course.level),
+              color: context.levelColor(course.level),
               dense: true,
             ),
             AppPill(
@@ -1527,7 +1527,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               AppPill(
                 label: tech,
                 icon: TechPalette.iconFor(tech),
-                color: TechPalette.colorFor(tech),
+                color: context.techColor(tech),
                 dense: true,
               ),
           ],
@@ -1960,7 +1960,7 @@ class _ResourceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final color = DocPalette.colorFor(doc.type);
+    final color = context.docColor(doc.type);
 
     return AppSurface(
       radius: AppRadius.md,

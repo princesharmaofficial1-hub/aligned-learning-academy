@@ -131,14 +131,14 @@ class _CatalogCourseCard extends StatelessWidget {
                       AppPill(
                         label: course.level,
                         icon: Icons.signal_cellular_alt_rounded,
-                        color: TechPalette.levelColor(course.level),
+                        color: context.levelColor(course.level),
                         dense: true,
                       ),
                       for (final tech in course.techStacks.take(3))
                         AppPill(
                           label: tech,
                           icon: TechPalette.iconFor(tech),
-                          color: TechPalette.colorFor(tech),
+                          color: context.techColor(tech),
                           dense: true,
                         ),
                     ],
@@ -555,7 +555,7 @@ class _CompactCourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final accent = TechPalette.levelColor(course.level);
+    final accent = context.levelColor(course.level);
     final progress = showProgress ? course.overallProgress : 0.0;
 
     return Semantics(

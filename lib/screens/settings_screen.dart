@@ -279,13 +279,13 @@ class _LicenseBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 AppPill(
-                  label: 'ENTERPRISE LICENSE',
+                  label: 'ORGANIZATION LICENSE',
                   icon: Icons.circle,
                   color: t.green,
                   dense: true,
                 ),
                 const SizedBox(height: AppSpace.sm),
-                Text('Aligned Automation', style: context.text.titleLarge),
+                Text('Aligned Learning', style: context.text.titleLarge),
                 const SizedBox(height: 2),
                 Text(
                   'Internal technical training & upskilling platform',
@@ -650,7 +650,7 @@ class _GovernanceCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
-                      'Aligned Enterprise Academy',
+                      'Aligned Learning',
                       style: context.text.titleLarge,
                     ),
                     const SizedBox(height: 2),
@@ -665,7 +665,7 @@ class _GovernanceCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.lg),
           Text(
-            'Aligned Learning Academy delivers continuous technical upskilling '
+            'Aligned Learning delivers continuous technical upskilling '
             'to software engineers and tech leads. All instructional streams '
             'originate from public-domain and open-access university '
             'repositories — MIT OpenCourseWare, Harvard CS and OER Commons.',

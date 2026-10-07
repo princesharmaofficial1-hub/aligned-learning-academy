@@ -20,15 +20,13 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Edge-to-edge with transparent system bars; per-screen overlay styling is
-  // handled by the theme's AppBarTheme and AnnotatedRegion.
+  // Edge-to-edge with transparent system bars. Icon brightness is *not*
+  // forced globally: each screen declares it (AppBar theme or AnnotatedRegion)
+  // so light mode gets dark icons and dark mode gets light icons.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.light,
       systemNavigationBarDividerColor: Colors.transparent,
     ),
   );
