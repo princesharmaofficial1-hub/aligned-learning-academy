@@ -635,67 +635,79 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           orElse: () => widget.course,
         );
 
-    return PopScope(
-      canPop: !_isFullscreen,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _isFullscreen) _toggleFullscreen();
-      },
-      child: Scaffold(
-        backgroundColor: t.canvas,
-        body: SafeArea(
-          top: !_isFullscreen,
-          bottom: !_isFullscreen,
-          child: Column(
-            children: <Widget>[
-              if (_isFullscreen)
-                Expanded(child: _buildStage())
-              else
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _buildStage(),
-                ),
-              if (!_isFullscreen) ...<Widget>[
-                _NowPlayingBar(
-                  lecture: _currentLecture,
-                  course: widget.course,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpace.gutter,
-                    AppSpace.md,
-                    AppSpace.gutter,
-                    AppSpace.md,
+    final lightStatusBar =
+        _isFullscreen || Theme.of(context).brightness == Brightness.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            lightStatusBar ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            lightStatusBar ? Brightness.dark : Brightness.light,
+      ),
+      child: PopScope(
+        canPop: !_isFullscreen,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && _isFullscreen) _toggleFullscreen();
+        },
+        child: Scaffold(
+          backgroundColor: t.canvas,
+          body: SafeArea(
+            top: !_isFullscreen,
+            bottom: !_isFullscreen,
+            child: Column(
+              children: <Widget>[
+                if (_isFullscreen)
+                  Expanded(child: _buildStage())
+                else
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _buildStage(),
                   ),
-                  child: AppSegmentControl(
-                    labels: <String>[
-                      'Playlist',
-                      'Docs${activeCourse.documents.isEmpty ? '' : ' ${activeCourse.documents.length}'}',
-                      'Notes',
-                      'Info',
-                    ],
-                    icons: const <IconData>[
-                      Icons.playlist_play_rounded,
-                      Icons.description_outlined,
-                      Icons.edit_note_rounded,
-                      Icons.info_outline_rounded,
-                    ],
-                    selectedIndex: _viewIndex,
-                    onChanged: (value) => setState(() => _viewIndex = value),
+                if (!_isFullscreen) ...<Widget>[
+                  _NowPlayingBar(
+                    lecture: _currentLecture,
+                    course: widget.course,
                   ),
-                ),
-                Expanded(
-                  child: IndexedStack(
-                    index: _viewIndex,
-                    children: <Widget>[
-                      _buildPlaylistTab(activeCourse),
-                      _buildResourcesTab(activeCourse),
-                      _buildNotesTab(),
-                      _buildInfoTab(activeCourse),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.gutter,
+                      AppSpace.md,
+                      AppSpace.gutter,
+                      AppSpace.md,
+                    ),
+                    child: AppSegmentControl(
+                      labels: <String>[
+                        'Playlist',
+                        'Docs${activeCourse.documents.isEmpty ? '' : ' ${activeCourse.documents.length}'}',
+                        'Notes',
+                        'Info',
+                      ],
+                      icons: const <IconData>[
+                        Icons.playlist_play_rounded,
+                        Icons.description_outlined,
+                        Icons.edit_note_rounded,
+                        Icons.info_outline_rounded,
+                      ],
+                      selectedIndex: _viewIndex,
+                      onChanged: (value) => setState(() => _viewIndex = value),
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _viewIndex,
+                      children: <Widget>[
+                        _buildPlaylistTab(activeCourse),
+                        _buildResourcesTab(activeCourse),
+                        _buildNotesTab(),
+                        _buildInfoTab(activeCourse),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
